@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KanbanRouteImport } from './routes/kanban'
+import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as MensagensRouteImport } from './routes/mensagens'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const KanbanRoute = KanbanRouteImport.update({
   path: '/kanban',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LeadsRoute = LeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MensagensRoute = MensagensRouteImport.update({
   id: '/mensagens',
   path: '/mensagens',
@@ -32,30 +38,34 @@ const MensagensRoute = MensagensRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/kanban': typeof KanbanRoute
+  '/leads': typeof LeadsRoute
   '/mensagens': typeof MensagensRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/kanban': typeof KanbanRoute
+  '/leads': typeof LeadsRoute
   '/mensagens': typeof MensagensRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/kanban': typeof KanbanRoute
+  '/leads': typeof LeadsRoute
   '/mensagens': typeof MensagensRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/kanban' | '/mensagens'
+  fullPaths: '/' | '/kanban' | '/leads' | '/mensagens'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/kanban' | '/mensagens'
-  id: '__root__' | '/' | '/kanban' | '/mensagens'
+  to: '/' | '/kanban' | '/leads' | '/mensagens'
+  id: '__root__' | '/' | '/kanban' | '/leads' | '/mensagens'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   KanbanRoute: typeof KanbanRoute
+  LeadsRoute: typeof LeadsRoute
   MensagensRoute: typeof MensagensRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KanbanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/leads': {
+      id: '/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mensagens': {
       id: '/mensagens'
       path: '/mensagens'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   KanbanRoute: KanbanRoute,
+  LeadsRoute: LeadsRoute,
   MensagensRoute: MensagensRoute,
 }
 export const routeTree = rootRouteImport
