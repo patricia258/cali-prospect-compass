@@ -27,36 +27,38 @@ function rowToLead(row: Record<string, unknown>): NovoLead | null {
     const value = row[key];
     norm[mapped] = value === undefined || value === null ? "" : String(value).trim();
   }
-  if (!norm.empresa) return null;
+  const g = (k: string) => norm[k] ?? "";
+  if (!g("empresa")) return null;
 
-  const nota = parseFloat((norm.nota_google ?? "").replace(",", "."));
-  const avaliacoes = parseInt((norm.n_avaliacoes ?? "").replace(/\D/g, ""), 10);
+  const nota = parseFloat(g("nota_google").replace(",", "."));
+  const avaliacoes = parseInt(g("n_avaliacoes").replace(/\D/g, ""), 10);
 
   return {
-    empresa: norm.empresa,
-    aderencia: norm.aderencia || null,
-    categoria: norm.categoria || null,
-    cidade: norm.cidade || null,
-    nome_decisor: norm.nome_decisor || null,
-    email: norm.email || null,
-    whatsapp: norm.whatsapp || null,
-    telefone: norm.telefone || null,
-    linkedin_decisor: norm.linkedin_decisor || null,
-    website: norm.website || null,
-    google_maps: norm.google_maps || null,
+    empresa: g("empresa"),
+    aderencia: g("aderencia") || null,
+    categoria: g("categoria") || null,
+    cidade: g("cidade") || null,
+    nome_decisor: g("nome_decisor") || null,
+    email: g("email") || null,
+    whatsapp: g("whatsapp") || null,
+    telefone: g("telefone") || null,
+    linkedin_decisor: g("linkedin_decisor") || null,
+    website: g("website") || null,
+    google_maps: g("google_maps") || null,
     nota_google: Number.isFinite(nota) ? nota : null,
     n_avaliacoes: Number.isFinite(avaliacoes) ? avaliacoes : null,
-    status: norm.status || "Não contatado",
-    origem: norm.origem || "planilha importada",
-    segmento: guessSegment(norm.aderencia, norm.categoria) || null,
+    status: g("status") || "Não contatado",
+    origem: g("origem") || "planilha importada",
+    segmento: guessSegment(g("aderencia"), g("categoria")) || null,
   };
 }
 
 /** Lê a planilha preservando o hyperlink real das células (Site / Google Maps). */
 function parseXlsx(buffer: ArrayBuffer): Record<string, unknown>[] {
   const wb = XLSX.read(buffer, { type: "array" });
-  const sheetName = wb.SheetNames.includes("Leads") ? "Leads" : wb.SheetNames[0];
+  const sheetName = wb.SheetNames.includes("Leads") ? "Leads" : (wb.SheetNames[0] ?? "");
   const ws = wb.Sheets[sheetName];
+
   if (!ws || !ws["!ref"]) return [];
   const range = XLSX.utils.decode_range(ws["!ref"]);
 
