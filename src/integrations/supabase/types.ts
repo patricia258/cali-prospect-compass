@@ -14,7 +14,170 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      lead_eventos: {
+        Row: {
+          criado_em: string
+          descricao: string | null
+          id: string
+          lead_id: string
+          status_anterior: string | null
+          status_novo: string | null
+          tipo: string
+        }
+        Insert: {
+          criado_em?: string
+          descricao?: string | null
+          id?: string
+          lead_id: string
+          status_anterior?: string | null
+          status_novo?: string | null
+          tipo: string
+        }
+        Update: {
+          criado_em?: string
+          descricao?: string | null
+          id?: string
+          lead_id?: string
+          status_anterior?: string | null
+          status_novo?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_eventos_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          aderencia: string | null
+          atualizado_em: string
+          categoria: string | null
+          cidade: string | null
+          criado_em: string
+          email: string | null
+          empresa: string
+          google_maps: string | null
+          id: string
+          linkedin_decisor: string | null
+          n_avaliacoes: number | null
+          nome_decisor: string | null
+          nota_google: number | null
+          notas: string | null
+          origem: string | null
+          proximo_followup: string | null
+          segmento: string | null
+          status: string
+          tags: string[]
+          telefone: string | null
+          website: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          aderencia?: string | null
+          atualizado_em?: string
+          categoria?: string | null
+          cidade?: string | null
+          criado_em?: string
+          email?: string | null
+          empresa: string
+          google_maps?: string | null
+          id?: string
+          linkedin_decisor?: string | null
+          n_avaliacoes?: number | null
+          nome_decisor?: string | null
+          nota_google?: number | null
+          notas?: string | null
+          origem?: string | null
+          proximo_followup?: string | null
+          segmento?: string | null
+          status?: string
+          tags?: string[]
+          telefone?: string | null
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          aderencia?: string | null
+          atualizado_em?: string
+          categoria?: string | null
+          cidade?: string | null
+          criado_em?: string
+          email?: string | null
+          empresa?: string
+          google_maps?: string | null
+          id?: string
+          linkedin_decisor?: string | null
+          n_avaliacoes?: number | null
+          nome_decisor?: string | null
+          nota_google?: number | null
+          notas?: string | null
+          origem?: string | null
+          proximo_followup?: string | null
+          segmento?: string | null
+          status?: string
+          tags?: string[]
+          telefone?: string | null
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      modelos_mensagem: {
+        Row: {
+          atualizado_em: string
+          canal: string
+          corpo: string
+          criado_em: string
+          id: string
+          segmento: string
+          titulo: string
+        }
+        Insert: {
+          atualizado_em?: string
+          canal: string
+          corpo: string
+          criado_em?: string
+          id?: string
+          segmento: string
+          titulo: string
+        }
+        Update: {
+          atualizado_em?: string
+          canal?: string
+          corpo?: string
+          criado_em?: string
+          id?: string
+          segmento?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
+      visoes_salvas: {
+        Row: {
+          criado_em: string
+          filtros: Json
+          id: string
+          nome: string
+        }
+        Insert: {
+          criado_em?: string
+          filtros?: Json
+          id?: string
+          nome: string
+        }
+        Update: {
+          criado_em?: string
+          filtros?: Json
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
