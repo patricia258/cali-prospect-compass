@@ -102,7 +102,9 @@ export async function fetchVisoes(): Promise<Visao[]> {
 }
 
 export async function criarVisao(nome: string, filtros: Record<string, unknown>) {
-  const { error } = await supabase.from("visoes_salvas").insert({ nome, filtros });
+  const { error } = await supabase
+    .from("visoes_salvas")
+    .insert({ nome, filtros: filtros as never });
   if (error) throw error;
 }
 
