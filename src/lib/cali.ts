@@ -15,20 +15,40 @@ export const STATUS_LIST = [
 
 export type Status = (typeof STATUS_LIST)[number];
 
-export const STATUS_COLORS: Record<string, string> = {
-  "Não contatado": "#B7A99A",
-  "Mensagem enviada": "#B58C52",
-  Respondeu: "#8AA37F",
-  "Reunião agendada": "#5C7A5A",
-  "Reunião realizada": "#3F6B52",
-  "Chamada agendada": "#5C7A5A",
-  "Proposta enviada": "#9C4A4F",
-  Cliente: "#5A1E2D",
-  "Em standby": "#8A8577",
-  Desalinhado: "#B0673E",
+/**
+ * Cores de status agrupadas por sinal, conforme definido pela Patrícia:
+ * - Não contatado / Mensagem enviada → neutro, sem cor de destaque (ainda não há sinal)
+ * - Respondeu / Reunião agendada / Reunião realizada / Chamada agendada → amarelo claro (em conversa)
+ * - Proposta enviada / Cliente → verde (resultado positivo)
+ * - Em standby → laranja
+ * - Desalinhado / Declinou / Sem interesse → vermelho (encerrado sem avanço)
+ *
+ * `null` significa "sem cor de destaque" — o StatusBadge renderiza neutro nesse caso.
+ */
+export const STATUS_COLORS: Record<string, string | null> = {
+  "Não contatado": null,
+  "Mensagem enviada": null,
+  Respondeu: "#D8B255",
+  "Reunião agendada": "#D8B255",
+  "Reunião realizada": "#D8B255",
+  "Chamada agendada": "#D8B255",
+  "Proposta enviada": "#4C7A52",
+  Cliente: "#4C7A52",
+  "Em standby": "#C97A3D",
+  Desalinhado: "#A5442F",
   Declinou: "#A5442F",
-  "Sem interesse": "#9C9088",
+  "Sem interesse": "#A5442F",
 };
+
+/** Cor "estrutural" — sempre retorna uma cor, mesmo para status neutros (usada em bordas/kanban). */
+export function statusColor(status?: string | null) {
+  return STATUS_COLORS[status ?? ""] ?? "#B7A99A";
+}
+
+/** Cor "de destaque" — retorna null para status neutros, para o StatusBadge saber quando não colorir. */
+export function statusAccent(status?: string | null) {
+  return STATUS_COLORS[status ?? ""] ?? null;
+}
 
 export const ADERENCIAS = ["Alta", "Média", "Parceria", "Baixa"];
 export const SEGMENTOS = ["A", "B", "C", "D"];
@@ -43,8 +63,28 @@ export const FUNIL = [
 
 export const DIAS_ESFRIANDO = 10;
 
-export function statusColor(status?: string | null) {
-  return STATUS_COLORS[status ?? ""] ?? "#B7A99A";
+export const WHATSAPP_OPCOES = ["Não informado", "Sim", "Não"] as const;
+
+/** Normaliza texto livre ("SIM", "NÃO ", "sim", etc.) para um dos valores canônicos. */
+export function normalizeWhatsapp(valor?: string | null): string | null {
+  if (!valor) return null;
+  const v = valor
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (v.startsWith("sim") || v === "s" || v === "yes" || v === "true") return "Sim";
+  if (v.startsWith("nao") || v === "n" || v === "no" || v === "false") return "Não";
+  return valor.trim();
+}
+
+/** Extrai apenas dígitos de um telefone e garante o prefixo do Brasil (55) para link do WhatsApp. */
+export function whatsappLink(telefone?: string | null) {
+  if (!telefone) return null;
+  const digitos = telefone.replace(/\D/g, "");
+  if (!digitos) return null;
+  const comPais = digitos.startsWith("55") ? digitos : `55${digitos}`;
+  return `https://wa.me/${comPais}`;
 }
 
 export function guessSegment(aderencia?: string | null, categoria?: string | null) {

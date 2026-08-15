@@ -7,16 +7,46 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+/**
+ * Acesso restrito — só este(s) e-mail(s) podem entrar no painel.
+ * Pode ser sobrescrito em build/deploy com VITE_ALLOWED_EMAILS="a@x.com,b@y.com".
+ * IMPORTANTE: isto é a trava do lado do app. A trava de verdade (que vale mesmo que
+ * alguém chame a API do Supabase direto) é a policy de RLS — ver migration
+ * `20260815_restringir_acesso_email.sql`. As duas precisam estar alinhadas.
+ */
+const ALLOWED_EMAILS = (
+  import.meta.env["VITE_ALLOWED_EMAILS"] || "patricia@calirh.com"
+)
+  .split(",")
+  .map((e: string) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+function isAllowed(email?: string | null) {
+  return !!email && ALLOWED_EMAILS.includes(email.trim().toLowerCase());
+}
+
 export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    async function checkAndSet(s: Session | null) {
+      if (s && !isAllowed(s.user?.email)) {
+        // Sessão de um e-mail não autorizado — nunca deixar passar, mesmo que já esteja logado.
+        await supabase.auth.signOut();
+        toast.error("Este painel é de acesso restrito à Patrícia.");
+        setSession(null);
+        return;
+      }
+      setSession(s);
+    }
+
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
+      checkAndSet(data.session).finally(() => setReady(true));
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      checkAndSet(s);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -39,6 +69,10 @@ function SignIn() {
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
+    if (!isAllowed(email)) {
+      toast.error("Este painel é de acesso restrito à Patrícia.");
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
     if (error) {

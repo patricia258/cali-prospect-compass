@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ExternalLink, Globe, Linkedin, MapPin, MessageCircle, Phone } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -25,10 +26,12 @@ import {
   ADERENCIAS,
   SEGMENTOS,
   STATUS_LIST,
+  WHATSAPP_OPCOES,
   formatData,
   formatDataHora,
   preencherModelo,
   proximosDiasUteis,
+  whatsappLink,
 } from "@/lib/cali";
 import {
   atualizarLead,
@@ -44,7 +47,6 @@ const CAMPOS: { key: keyof Lead; label: string; type?: string }[] = [
   { key: "cidade", label: "Cidade" },
   { key: "nome_decisor", label: "Nome do decisor" },
   { key: "email", label: "E-mail" },
-  { key: "whatsapp", label: "WhatsApp" },
   { key: "telefone", label: "Telefone" },
   { key: "linkedin_decisor", label: "LinkedIn do decisor" },
   { key: "website", label: "Site" },
@@ -53,6 +55,31 @@ const CAMPOS: { key: keyof Lead; label: string; type?: string }[] = [
   { key: "n_avaliacoes", label: "Nº de avaliações", type: "number" },
   { key: "origem", label: "Origem" },
 ];
+
+/** Botão de ação rápida — abre em nova aba de verdade (fora do preview do Lovable isso não tem sandbox). */
+function AcaoRapida({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string | null;
+  icon: typeof Globe;
+  label: string;
+}) {
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 rounded-full border border-dourado/60 bg-dourado/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-dourado hover:text-white"
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+      <ExternalLink className="h-3 w-3 opacity-60" />
+    </a>
+  );
+}
 
 export function LeadDrawer({
   lead,
@@ -101,6 +128,9 @@ export function LeadDrawer({
   if (!draft) return null;
   const set = (patch: Partial<Lead>) => setDraft({ ...draft, ...patch });
 
+  const wa = draft.whatsapp === "Sim" ? whatsappLink(draft.telefone) : null;
+  const temAcaoRapida = draft.website || draft.google_maps || draft.linkedin_decisor || wa || draft.telefone;
+
   function statusChange(novo: string) {
     const patch: Partial<Lead> = { status: novo };
     if (novo === "Mensagem enviada" && !draft!.proximo_followup) {
@@ -124,20 +154,31 @@ export function LeadDrawer({
   return (
     <Sheet open={!!lead} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader className="gap-2">
-          <SheetTitle className="font-display text-2xl text-primary">
-            {draft.empresa}
-          </SheetTitle>
+        <SheetHeader className="gap-3 pb-2">
+          <SheetTitle className="font-display text-2xl text-primary">{draft.empresa}</SheetTitle>
           <SheetDescription className="flex flex-wrap items-center gap-2">
             <StatusBadge status={draft.status} />
             <span className="text-xs text-muted-foreground">
               Atualizado em {formatData(draft.atualizado_em)}
             </span>
           </SheetDescription>
+          {temAcaoRapida && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              <AcaoRapida href={draft.website} icon={Globe} label="Site" />
+              <AcaoRapida href={draft.google_maps} icon={MapPin} label="Maps" />
+              <AcaoRapida href={draft.linkedin_decisor} icon={Linkedin} label="LinkedIn" />
+              <AcaoRapida href={wa} icon={MessageCircle} label="WhatsApp" />
+              <AcaoRapida
+                href={draft.telefone ? `tel:${draft.telefone.replace(/\s/g, "")}` : null}
+                icon={Phone}
+                label="Ligar"
+              />
+            </div>
+          )}
         </SheetHeader>
 
-        <Tabs defaultValue="ficha" className="px-4 pb-8">
-          <TabsList className="w-full">
+        <Tabs defaultValue="ficha" className="pb-2">
+          <TabsList className="mt-4 w-full border">
             <TabsTrigger value="ficha" className="flex-1">
               Ficha
             </TabsTrigger>
@@ -212,6 +253,24 @@ export function LeadDrawer({
                     {SEGMENTOS.map((s) => (
                       <SelectItem key={s} value={s}>
                         Segmento {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tem WhatsApp?</Label>
+                <Select
+                  value={draft.whatsapp || "Não informado"}
+                  onValueChange={(v) => set({ whatsapp: v === "Não informado" ? null : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WHATSAPP_OPCOES.map((o) => (
+                      <SelectItem key={o} value={o}>
+                        {o}
                       </SelectItem>
                     ))}
                   </SelectContent>

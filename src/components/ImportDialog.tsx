@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { HEADER_MAP, guessSegment, normalizeHeader } from "@/lib/cali";
+import { HEADER_MAP, guessSegment, normalizeHeader, normalizeWhatsapp } from "@/lib/cali";
 import { criarLeads, type Lead } from "@/lib/db";
 import type { TablesInsert } from "@/integrations/supabase/types";
 
@@ -40,7 +40,7 @@ function rowToLead(row: Record<string, unknown>): NovoLead | null {
     cidade: g("cidade") || null,
     nome_decisor: g("nome_decisor") || null,
     email: g("email") || null,
-    whatsapp: g("whatsapp") || null,
+    whatsapp: normalizeWhatsapp(g("whatsapp")),
     telefone: g("telefone") || null,
     linkedin_decisor: g("linkedin_decisor") || null,
     website: g("website") || null,

@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import Papa from "papaparse";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { LeadDrawer } from "@/components/LeadDrawer";
 import { ImportDialog } from "@/components/ImportDialog";
@@ -60,9 +61,7 @@ type Ordem = { campo: keyof Lead; dir: "asc" | "desc" };
 const COLUNAS: { campo: keyof Lead; label: string; className?: string }[] = [
   { campo: "empresa", label: "Empresa" },
   { campo: "aderencia", label: "Aderência" },
-  { campo: "segmento", label: "Segmento" },
   { campo: "cidade", label: "Cidade" },
-  { campo: "nota_google", label: "Google" },
   { campo: "status", label: "Status" },
   { campo: "proximo_followup", label: "Follow-up" },
   { campo: "atualizado_em", label: "Atualizado" },
@@ -79,6 +78,7 @@ function Leads() {
   const [status, setStatus] = useState("todos");
   const [followupVencido, setFollowupVencido] = useState(false);
   const [agrupar, setAgrupar] = useState(false);
+  const [gruposFechados, setGruposFechados] = useState<Set<string>>(new Set());
   const [ordem, setOrdem] = useState<Ordem>({ campo: "atualizado_em", dir: "desc" });
   const [aberto, setAberto] = useState<Lead | null>(null);
   const [importando, setImportando] = useState(false);
@@ -334,89 +334,95 @@ function Leads() {
                   </td>
                 </tr>
               )}
-              {grupos.map((g) => (
-                <Fragment key={g.titulo ?? "todos"}>
-                  {g.titulo && (
-                    <tr key={`h-${g.titulo}`} className="bg-secondary/60">
-                      <td colSpan={COLUNAS.length} className="px-3 py-1.5">
-                        <span className="flex items-center gap-2 text-xs font-semibold">
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: statusColor(g.titulo) }}
-                          />
-                          {g.titulo}
-                          <span className="text-muted-foreground">({g.itens.length})</span>
-                        </span>
-                      </td>
-                    </tr>
-                  )}
-                  {g.itens.map((l) => {
-                    const vencido = !!l.proximo_followup && l.proximo_followup < hoje;
-                    const esfriando = diasDesde(l.atualizado_em) > DIAS_ESFRIANDO;
-                    return (
-                      <tr
-                        key={l.id}
-                        onClick={() => setAberto(l)}
-                        className="cursor-pointer border-b last:border-0 hover:bg-secondary/50"
-                      >
-                        <td className="px-3 py-2.5">
-                          <span className="font-medium">{l.empresa}</span>
-                          <span className="block text-xs text-muted-foreground">
-                            {l.categoria ?? "—"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground">
-                          {l.aderencia ?? "—"}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {l.segmento ? (
-                            l.segmento
-                          ) : (
-                            <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                              definir
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground">{l.cidade ?? "—"}</td>
-                        <td className="px-3 py-2.5 tabular-nums text-muted-foreground">
-                          {l.nota_google ?? "—"}
-                          {l.n_avaliacoes ? ` (${l.n_avaliacoes})` : ""}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <StatusBadge status={l.status} />
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {l.proximo_followup ? (
+              {grupos.map((g) => {
+                const fechado = g.titulo ? gruposFechados.has(g.titulo) : false;
+                return (
+                  <Fragment key={g.titulo ?? "todos"}>
+                    {g.titulo && (
+                      <tr key={`h-${g.titulo}`} className="bg-secondary/60">
+                        <td colSpan={COLUNAS.length} className="px-3 py-1.5">
+                          <button
+                            className="flex w-full items-center gap-2 text-left text-xs font-semibold"
+                            onClick={() =>
+                              setGruposFechados((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(g.titulo!)) next.delete(g.titulo!);
+                                else next.add(g.titulo!);
+                                return next;
+                              })
+                            }
+                          >
+                            {fechado ? (
+                              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
                             <span
-                              className="rounded-sm px-1.5 py-0.5 text-xs"
-                              style={
-                                vencido
-                                  ? { backgroundColor: "#A5442F1f", color: "#A5442F" }
-                                  : undefined
-                              }
-                            >
-                              {formatData(l.proximo_followup)}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                          {formatData(l.atualizado_em)}
-                          {esfriando && (
-                            <span
-                              className="ml-1.5 rounded-sm px-1.5 py-0.5 text-[10px]"
-                              style={{ backgroundColor: "#B58C521f", color: "#B58C52" }}
-                            >
-                              esfriando
-                            </span>
-                          )}
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: statusColor(g.titulo) }}
+                            />
+                            {g.titulo}
+                            <span className="text-muted-foreground">({g.itens.length})</span>
+                          </button>
                         </td>
                       </tr>
-                    );
-                  })}
-                </Fragment>
-              ))}
+                    )}
+                    {!fechado &&
+                      g.itens.map((l) => {
+                        const vencido = !!l.proximo_followup && l.proximo_followup < hoje;
+                        const esfriando = diasDesde(l.atualizado_em) > DIAS_ESFRIANDO;
+                        return (
+                          <tr
+                            key={l.id}
+                            onClick={() => setAberto(l)}
+                            className="cursor-pointer border-b last:border-0 hover:bg-secondary/50"
+                          >
+                            <td className="px-3 py-2.5">
+                              <span className="font-medium">{l.empresa}</span>
+                              <span className="block text-xs text-muted-foreground">
+                                {l.categoria ?? "—"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-muted-foreground">
+                              {l.aderencia ?? "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-muted-foreground">{l.cidade ?? "—"}</td>
+                            <td className="px-3 py-2.5">
+                              <StatusBadge status={l.status} />
+                            </td>
+                            <td className="px-3 py-2.5">
+                              {l.proximo_followup ? (
+                                <span
+                                  className="rounded-sm px-1.5 py-0.5 text-xs"
+                                  style={
+                                    vencido
+                                      ? { backgroundColor: "#A5442F1f", color: "#A5442F" }
+                                      : undefined
+                                  }
+                                >
+                                  {formatData(l.proximo_followup)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                              {formatData(l.atualizado_em)}
+                              {esfriando && (
+                                <span
+                                  className="ml-1.5 rounded-sm px-1.5 py-0.5 text-[10px]"
+                                  style={{ backgroundColor: "#B58C521f", color: "#B58C52" }}
+                                >
+                                  esfriando
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </Fragment>
+                );
+              })}
               {!isLoading && filtrados.length === 0 && (
                 <tr>
                   <td colSpan={COLUNAS.length} className="px-3 py-8 text-muted-foreground">
