@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import Papa from "papaparse";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -335,7 +335,7 @@ function Leads() {
                 </tr>
               )}
               {grupos.map((g) => (
-                <>
+                <Fragment key={g.titulo ?? "todos"}>
                   {g.titulo && (
                     <tr key={`h-${g.titulo}`} className="bg-secondary/60">
                       <td colSpan={COLUNAS.length} className="px-3 py-1.5">
@@ -415,7 +415,7 @@ function Leads() {
                       </tr>
                     );
                   })}
-                </>
+                </Fragment>
               ))}
               {!isLoading && filtrados.length === 0 && (
                 <tr>
