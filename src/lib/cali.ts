@@ -1,43 +1,46 @@
 export const STATUS_LIST = [
-  "Não contatado",
-  "Mensagem enviada",
-  "Respondeu",
-  "Reunião agendada",
-  "Reunião realizada",
-  "Chamada agendada",
+  "Novo lead",
+  "Enriquecendo dados",
+  "Qualificado",
+  "Sinal identificado",
+  "Abordagem enviada",
+  "Em cadência",
+  "Conversa aberta",
+  "Diagnóstico agendado",
+  "Mapa de People enviado/realizado",
   "Proposta enviada",
+  "Negociação",
   "Cliente",
-  "Em standby",
-  "Desalinhado",
-  "Declinou",
-  "Sem interesse",
+  "Sem fit / perdido",
 ] as const;
 
 export type Status = (typeof STATUS_LIST)[number];
 
 /**
- * Cores de status agrupadas por sinal, conforme definido pela Patrícia:
- * - Não contatado / Mensagem enviada → neutro, sem cor de destaque (ainda não há sinal)
- * - Respondeu / Reunião agendada / Reunião realizada / Chamada agendada → amarelo claro (em conversa)
- * - Proposta enviada / Cliente → verde (resultado positivo)
- * - Em standby → laranja
- * - Desalinhado / Declinou / Sem interesse → vermelho (encerrado sem avanço)
+ * Cores do pipeline orientado por estratégia:
+ * - início e enriquecimento → neutros
+ * - qualificação e sinal → dourado
+ * - cadência → laranja
+ * - conversa e diagnóstico → amarelo/verde suave
+ * - proposta, negociação e cliente → verde
+ * - sem fit / perdido → vermelho
  *
  * `null` significa "sem cor de destaque" — o StatusBadge renderiza neutro nesse caso.
  */
 export const STATUS_COLORS: Record<string, string | null> = {
-  "Não contatado": null,
-  "Mensagem enviada": null,
-  Respondeu: "#D8B255",
-  "Reunião agendada": "#D8B255",
-  "Reunião realizada": "#D8B255",
-  "Chamada agendada": "#D8B255",
+  "Novo lead": null,
+  "Enriquecendo dados": "#9A8B7C",
+  Qualificado: "#B58C52",
+  "Sinal identificado": "#B58C52",
+  "Abordagem enviada": "#A27C48",
+  "Em cadência": "#C97A3D",
+  "Conversa aberta": "#D8B255",
+  "Diagnóstico agendado": "#7B916D",
+  "Mapa de People enviado/realizado": "#607A61",
   "Proposta enviada": "#4C7A52",
+  Negociação: "#3F6B52",
   Cliente: "#4C7A52",
-  "Em standby": "#C97A3D",
-  Desalinhado: "#A5442F",
-  Declinou: "#A5442F",
-  "Sem interesse": "#A5442F",
+  "Sem fit / perdido": "#A5442F",
 };
 
 /** Cor "estrutural" — sempre retorna uma cor, mesmo para status neutros (usada em bordas/kanban). */
@@ -52,11 +55,53 @@ export function statusAccent(status?: string | null) {
 
 export const ADERENCIAS = ["Alta", "Média", "Parceria", "Baixa"];
 export const SEGMENTOS = ["A", "B", "C", "D"];
+export const PRIORIDADES = ["Alta", "Média", "Baixa"] as const;
+export const PAPEIS_CONTATO = ["Decisor", "Influenciador", "Outro"] as const;
+export const ORIGENS = [
+  "Indicação",
+  "LinkedIn",
+  "Instagram",
+  "Site",
+  "Evento",
+  "Lista",
+  "Inbound",
+  "Outro",
+] as const;
+export const SINAIS_COMPRA = [
+  "Engajou em conteúdo",
+  "Visitou perfil",
+  "Empresa contratando",
+  "Crescimento / expansão",
+  "Novo cargo",
+  "Postou sobre a dor",
+  "Indicação",
+  "Sem sinal",
+] as const;
+export const SINAIS_QUENTES = new Set(["Engajou em conteúdo", "Visitou perfil", "Indicação"]);
+export const CADENCIA_STATUS = [
+  "Não iniciada",
+  "Ativa",
+  "Pausada por resposta",
+  "Concluída",
+] as const;
+
+export const CADENCIA = [
+  { toque: 1, nome: "Convite com nota", quando: "Dia 1", objetivo: "Abrir conexão" },
+  {
+    toque: 2,
+    nome: "Mensagem de valor",
+    quando: "1–2 dias após aceitar",
+    objetivo: "Abrir conversa",
+  },
+  { toque: 3, nome: "Ponte para a dor", quando: "3–4 dias depois", objetivo: "Diagnosticar" },
+  { toque: 4, nome: "Convite claro", quando: "3–4 dias depois", objetivo: "Agendar 20 minutos" },
+] as const;
 
 export const FUNIL = [
-  "Mensagem enviada",
-  "Respondeu",
-  "Reunião realizada",
+  "Abordagem enviada",
+  "Conversa aberta",
+  "Diagnóstico agendado",
+  "Mapa de People enviado/realizado",
   "Proposta enviada",
   "Cliente",
 ];
@@ -64,6 +109,25 @@ export const FUNIL = [
 export const DIAS_ESFRIANDO = 10;
 
 export const WHATSAPP_OPCOES = ["Não informado", "Sim", "Não"] as const;
+
+const STATUS_ANTERIOR_PARA_ATUAL: Record<string, string> = {
+  "Não contatado": "Novo lead",
+  "Mensagem enviada": "Abordagem enviada",
+  Respondeu: "Conversa aberta",
+  "Reunião agendada": "Diagnóstico agendado",
+  "Chamada agendada": "Diagnóstico agendado",
+  "Reunião realizada": "Mapa de People enviado/realizado",
+  "Em standby": "Em cadência",
+  Desalinhado: "Sem fit / perdido",
+  Declinou: "Sem fit / perdido",
+  "Sem interesse": "Sem fit / perdido",
+};
+
+export function normalizeStatus(valor?: string | null) {
+  const status = valor?.trim();
+  if (!status) return "Novo lead";
+  return STATUS_ANTERIOR_PARA_ATUAL[status] ?? status;
+}
 
 /** Normaliza texto livre ("SIM", "NÃO ", "sim", etc.) para um dos valores canônicos. */
 export function normalizeWhatsapp(valor?: string | null): string | null {
@@ -121,6 +185,28 @@ export const HEADER_MAP: Record<string, string> = {
   statusdocontato: "status",
   status: "status",
   origem: "origem",
+  cargo: "cargo_decisor",
+  cargododecisor: "cargo_decisor",
+  estado: "estado",
+  uf: "estado",
+  linkedindaempresa: "linkedin_empresa",
+  tamanhodotime: "tamanho_time",
+  numerodefuncionarios: "tamanho_time",
+  faixadefaturamento: "faixa_faturamento",
+  papelnocontato: "papel_contato",
+  icpfit: "icp_fit",
+  dorprovavel: "dor_provavel",
+  pessoaschave: "pessoas_chave",
+  estagiodecrescimento: "estagio_crescimento",
+  sinal: "sinal_compra",
+  sinaldecompra: "sinal_compra",
+  detalhedosinal: "sinal_detalhe",
+  prioridade: "prioridade",
+  responsavel: "responsavel",
+  proximopasso: "proximo_passo",
+  angulodeabordagem: "angulo_abordagem",
+  objecao: "objecao",
+  respostaaobjecao: "resposta_objecao",
 };
 
 export function normalizeHeader(h: string) {
@@ -141,6 +227,36 @@ export function proximosDiasUteis(dias = 3) {
     if (dow !== 0 && dow !== 6) restantes--;
   }
   return d.toISOString().slice(0, 10);
+}
+
+export function proximoIntervaloCadencia(toqueAtual: number) {
+  if (toqueAtual <= 1) return 2;
+  if (toqueAtual === 2) return 3;
+  return 4;
+}
+
+export function temCanalContato(lead: {
+  email?: string | null;
+  telefone?: string | null;
+  linkedin_decisor?: string | null;
+  whatsapp?: string | null;
+}) {
+  return Boolean(lead.email || lead.telefone || lead.linkedin_decisor || lead.whatsapp === "Sim");
+}
+
+export function prontoParaAbordagem(lead: {
+  empresa?: string | null;
+  nome_decisor?: string | null;
+  angulo_abordagem?: string | null;
+  dor_provavel?: string | null;
+  sinal_detalhe?: string | null;
+  email?: string | null;
+  telefone?: string | null;
+  linkedin_decisor?: string | null;
+  whatsapp?: string | null;
+}) {
+  const contexto = lead.angulo_abordagem || lead.dor_provavel || lead.sinal_detalhe;
+  return Boolean(lead.empresa && lead.nome_decisor && temCanalContato(lead) && contexto);
 }
 
 export function diasDesde(iso?: string | null) {
