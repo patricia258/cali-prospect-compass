@@ -13,9 +13,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { HEADER_MAP, guessSegment, normalizeHeader, normalizeWhatsapp } from "@/lib/cali";
-import { criarLeads, type Lead } from "@/lib/db";
-import type { TablesInsert } from "@/integrations/supabase/types";
+import {
+  HEADER_MAP,
+  guessSegment,
+  normalizeHeader,
+  normalizeStatus,
+  normalizeWhatsapp,
+} from "@/lib/cali";
+import { importarLeadsSeguro, type Lead } from "@/lib/db";
+import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 type NovoLead = TablesInsert<"leads">;
 
@@ -37,17 +43,35 @@ function rowToLead(row: Record<string, unknown>): NovoLead | null {
     empresa: g("empresa"),
     aderencia: g("aderencia") || null,
     categoria: g("categoria") || null,
+    cargo_decisor: g("cargo_decisor") || null,
     cidade: g("cidade") || null,
+    estado: g("estado") || null,
     nome_decisor: g("nome_decisor") || null,
     email: g("email") || null,
     whatsapp: normalizeWhatsapp(g("whatsapp")),
     telefone: g("telefone") || null,
     linkedin_decisor: g("linkedin_decisor") || null,
+    linkedin_empresa: g("linkedin_empresa") || null,
     website: g("website") || null,
     google_maps: g("google_maps") || null,
     nota_google: Number.isFinite(nota) ? nota : null,
     n_avaliacoes: Number.isFinite(avaliacoes) ? avaliacoes : null,
-    status: g("status") || "Não contatado",
+    tamanho_time: g("tamanho_time") || null,
+    faixa_faturamento: g("faixa_faturamento") || null,
+    papel_contato: g("papel_contato") || null,
+    icp_fit: g("icp_fit") && Number.isFinite(Number(g("icp_fit"))) ? Number(g("icp_fit")) : null,
+    dor_provavel: g("dor_provavel") || null,
+    pessoas_chave: g("pessoas_chave") || null,
+    estagio_crescimento: g("estagio_crescimento") || null,
+    sinal_compra: g("sinal_compra") || "Sem sinal",
+    sinal_detalhe: g("sinal_detalhe") || null,
+    prioridade: g("prioridade") || "Média",
+    responsavel: g("responsavel") || "Patrícia",
+    proximo_passo: g("proximo_passo") || null,
+    angulo_abordagem: g("angulo_abordagem") || null,
+    objecao: g("objecao") || null,
+    resposta_objecao: g("resposta_objecao") || null,
+    status: normalizeStatus(g("status")),
     origem: g("origem") || "planilha importada",
     segmento: guessSegment(g("aderencia"), g("categoria")) || null,
   };
@@ -76,8 +100,7 @@ function parseXlsx(buffer: ArrayBuffer): Record<string, unknown>[] {
       const header = headers[c];
       if (!header) continue;
       const cell = ws[XLSX.utils.encode_cell({ r, c })] as
-        | (XLSX.CellObject & { l?: { Target?: string } })
-        | undefined;
+        (XLSX.CellObject & { l?: { Target?: string } }) | undefined;
       if (!cell) continue;
       const link = cell.l?.Target;
       const value = link && /^https?:/i.test(link) ? link : (cell.v ?? "");
@@ -94,29 +117,88 @@ type Analise = {
   duplicados: { novo: NovoLead; existente: Lead }[];
 };
 
+function chaveContato(valor: string | null | undefined, tipo: "email" | "telefone" | "linkedin") {
+  const v = (valor ?? "").trim().toLowerCase();
+  if (!v) return "";
+  if (tipo === "telefone") return v.replace(/\D/g, "");
+  return v.replace(/\/$/, "");
+}
+
 function analisar(candidatos: NovoLead[], existentes: Lead[]): Analise {
   const porEmpresa = new Map(existentes.map((l) => [l.empresa.trim().toLowerCase(), l]));
   const porContato = new Map<string, Lead>();
   for (const l of existentes) {
-    for (const v of [l.email, l.whatsapp, l.telefone]) {
-      const chave = (v ?? "").replace(/\D/g, "") || (v ?? "").toLowerCase();
-      if (chave) porContato.set(chave, l);
-    }
+    const chaves = [
+      chaveContato(l.email, "email"),
+      chaveContato(l.telefone, "telefone"),
+      chaveContato(l.linkedin_decisor, "linkedin"),
+    ];
+    chaves.filter(Boolean).forEach((chave) => porContato.set(chave, l));
   }
 
   const novos: NovoLead[] = [];
   const duplicados: Analise["duplicados"] = [];
+  const empresasDoArquivo = new Set<string>();
   for (const c of candidatos) {
-    const chaves = [c.email, c.whatsapp, c.telefone]
-      .map((v) => (v ?? "").replace(/\D/g, "") || (v ?? "").toLowerCase())
-      .filter(Boolean);
-    const existente =
-      porEmpresa.get(c.empresa.trim().toLowerCase()) ??
-      chaves.map((k) => porContato.get(k)).find(Boolean);
+    const empresa = c.empresa.trim().toLowerCase();
+    if (empresasDoArquivo.has(empresa)) continue;
+    empresasDoArquivo.add(empresa);
+    const chaves = [
+      chaveContato(c.email, "email"),
+      chaveContato(c.telefone, "telefone"),
+      chaveContato(c.linkedin_decisor, "linkedin"),
+    ].filter(Boolean);
+    const existente = porEmpresa.get(empresa) ?? chaves.map((k) => porContato.get(k)).find(Boolean);
     if (existente) duplicados.push({ novo: c, existente });
     else novos.push(c);
   }
   return { novos, duplicados };
+}
+
+const CAMPOS_COMPLETAVEIS: (keyof NovoLead)[] = [
+  "aderencia",
+  "categoria",
+  "cargo_decisor",
+  "cidade",
+  "estado",
+  "nome_decisor",
+  "email",
+  "whatsapp",
+  "telefone",
+  "linkedin_decisor",
+  "linkedin_empresa",
+  "website",
+  "google_maps",
+  "nota_google",
+  "n_avaliacoes",
+  "tamanho_time",
+  "faixa_faturamento",
+  "papel_contato",
+  "icp_fit",
+  "dor_provavel",
+  "pessoas_chave",
+  "estagio_crescimento",
+  "sinal_compra",
+  "sinal_detalhe",
+  "origem",
+  "prioridade",
+  "responsavel",
+  "proximo_passo",
+  "angulo_abordagem",
+];
+
+function atualizacoesSeguras(duplicados: Analise["duplicados"]) {
+  return duplicados.flatMap(({ novo, existente }) => {
+    const patch: TablesUpdate<"leads"> = {};
+    for (const campo of CAMPOS_COMPLETAVEIS) {
+      const atual = existente[campo as keyof Lead];
+      const recebido = novo[campo];
+      if ((atual === null || atual === "") && recebido !== null && recebido !== "") {
+        Object.assign(patch, { [campo]: recebido });
+      }
+    }
+    return Object.keys(patch).length ? [{ id: existente.id, patch }] : [];
+  });
 }
 
 export function ImportDialog({
@@ -131,25 +213,40 @@ export function ImportDialog({
   const qc = useQueryClient();
   const [texto, setTexto] = useState("");
   const [analise, setAnalise] = useState<Analise | null>(null);
+  const [arquivo, setArquivo] = useState<string | null>(null);
 
   const importar = useMutation({
-    mutationFn: async (rows: NovoLead[]) => criarLeads(rows),
+    mutationFn: async (modo: "somente_novos" | "completar_vazios") => {
+      if (!analise) throw new Error("Importação não analisada.");
+      const atualizacoes =
+        modo === "completar_vazios" ? atualizacoesSeguras(analise.duplicados) : [];
+      return importarLeadsSeguro({
+        novos: analise.novos,
+        atualizacoes,
+        existentes: leads,
+        arquivo,
+        modo,
+        duplicados: analise.duplicados.length,
+      });
+    },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["leads"] });
-      toast.success(`${data.length} lead(s) importado(s).`);
+      toast.success(`${data.novos} novo(s) e ${data.atualizados} cadastro(s) complementado(s).`);
       setTexto("");
       setAnalise(null);
+      setArquivo(null);
       onOpenChange(false);
     },
     onError: () => toast.error("Falha ao importar."),
   });
 
-  function processar(rows: Record<string, unknown>[]) {
+  function processar(rows: Record<string, unknown>[], nomeArquivo?: string) {
     const candidatos = rows.map(rowToLead).filter(Boolean) as NovoLead[];
     if (!candidatos.length) {
       toast.error("Nenhuma linha com coluna Empresa foi encontrada.");
       return;
     }
+    setArquivo(nomeArquivo ?? "CSV colado");
     setAnalise(analisar(candidatos, leads));
   }
 
@@ -163,9 +260,9 @@ export function ImportDialog({
             header: true,
             skipEmptyLines: true,
           });
-          processar(parsed.data);
+          processar(parsed.data, file.name);
         } else {
-          processar(parseXlsx(reader.result as ArrayBuffer));
+          processar(parseXlsx(reader.result as ArrayBuffer), file.name);
         }
       } catch {
         toast.error("Não consegui ler esse arquivo. Exporte novamente como .xlsx.");
@@ -181,8 +278,8 @@ export function ImportDialog({
         <DialogHeader>
           <DialogTitle className="font-display text-2xl text-primary">Importar leads</DialogTitle>
           <DialogDescription>
-            Envie a planilha (.xlsx, .xls, .csv) ou cole o conteúdo em CSV. No .xlsx o link real
-            de Site e Google Maps é lido do hyperlink da célula.
+            Envie a planilha (.xlsx, .xls, .csv) ou cole o conteúdo em CSV. A importação nunca apaga
+            leads. Antes de qualquer alteração, o sistema guarda uma cópia integral da base.
           </DialogDescription>
         </DialogHeader>
 
@@ -221,7 +318,7 @@ export function ImportDialog({
                   header: true,
                   skipEmptyLines: true,
                 });
-                processar(parsed.data);
+                processar(parsed.data, "CSV colado");
               }}
             >
               Analisar
@@ -255,22 +352,28 @@ export function ImportDialog({
               </div>
             )}
 
+            <div className="rounded-md border border-dourado/40 bg-dourado/10 p-4 text-sm">
+              <p className="font-medium text-primary">Proteção da base ativa</p>
+              <p className="mt-1 text-muted-foreground">
+                Nenhuma opção abaixo substitui a base. Status, notas, follow-ups e histórico dos
+                leads existentes são preservados.
+              </p>
+            </div>
+
             <div className="flex flex-wrap gap-2">
               <Button
-                onClick={() => importar.mutate(analise.novos)}
+                onClick={() => importar.mutate("somente_novos")}
                 disabled={importar.isPending || analise.novos.length === 0}
               >
-                Importar só os novos
+                Importar somente novos (recomendado)
               </Button>
               {analise.duplicados.length > 0 && (
                 <Button
                   variant="outline"
                   disabled={importar.isPending}
-                  onClick={() =>
-                    importar.mutate([...analise.novos, ...analise.duplicados.map((d) => d.novo)])
-                  }
+                  onClick={() => importar.mutate("completar_vazios")}
                 >
-                  Importar tudo, inclusive duplicados
+                  Novos + completar campos vazios
                 </Button>
               )}
               <Button variant="ghost" onClick={() => setAnalise(null)}>
