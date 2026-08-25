@@ -1,26 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Shell } from "@/components/Shell";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { fetchModelos, salvarModelo, type Modelo } from "@/lib/db";
-import { SEGMENTOS } from "@/lib/cali";
+import { CADENCIA, SINAIS_COMPRA } from "@/lib/cali";
+import { fetchEstrategias, salvarEstrategia, type EstrategiaMensagem } from "@/lib/db";
 
 export const Route = createFileRoute("/mensagens")({
   head: () => ({
     meta: [
-      { title: "Modelos de mensagem · Cali Prospecção" },
+      { title: "Estratégia de abordagem · Cali Prospecção" },
       {
         name: "description",
-        content:
-          "Biblioteca editável de abordagens por segmento, em versão longa e versão curta.",
-      },
-      { property: "og:title", content: "Modelos de mensagem · Cali Prospecção" },
-      {
-        property: "og:description",
-        content: "Biblioteca editável de abordagens por segmento, versão longa e curta.",
+        content: "Cadências humanas de quatro toques, organizadas por sinal de compra.",
       },
     ],
   }),
@@ -28,54 +29,108 @@ export const Route = createFileRoute("/mensagens")({
 });
 
 function Mensagens() {
-  const { data: modelos = [] } = useQuery({ queryKey: ["modelos"], queryFn: fetchModelos });
+  const { data: estrategias = [] } = useQuery({
+    queryKey: ["estrategias"],
+    queryFn: fetchEstrategias,
+  });
+  const [sinal, setSinal] = useState<string>("Empresa contratando");
+
+  const modelos = useMemo(
+    () => estrategias.filter((m) => m.sinal === sinal).sort((a, b) => a.toque - b.toque),
+    [estrategias, sinal],
+  );
 
   return (
     <Shell
-      title="Modelos de mensagem"
-      subtitle="Quatro segmentos, dois comprimentos. Versão longa para LinkedIn e e-mail; versão curta para WhatsApp e Instagram. Use [Empresa] e [Nome] — o painel preenche na hora de copiar."
+      title="Estratégia de abordagem"
+      subtitle="Cada mensagem parte de um sinal verificável e avança de conexão para valor, diagnóstico e convite. O sistema prepara; você revisa e envia manualmente."
     >
-      <div className="space-y-10">
-        {SEGMENTOS.map((seg) => (
-          <section key={seg}>
-            <h2 className="text-2xl text-primary">Segmento {seg}</h2>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              {modelos
-                .filter((m) => m.segmento === seg)
-                .sort((a) => (a.canal === "longo" ? -1 : 1))
-                .map((m) => (
-                  <EditorModelo key={m.id} modelo={m} />
-                ))}
+      <div className="space-y-8">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {CADENCIA.map((etapa) => (
+            <article key={etapa.toque} className="rounded-md border bg-card p-4 shadow-card">
+              <p className="label-eyebrow">
+                Toque {etapa.toque} · {etapa.quando}
+              </p>
+              <h2 className="mt-2 text-lg text-primary">{etapa.nome}</h2>
+              <p className="mt-1 text-xs text-muted-foreground">{etapa.objetivo}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="rounded-md border bg-card p-5 shadow-card">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="label-eyebrow">Biblioteca editável</p>
+              <h2 className="mt-1 text-2xl text-primary">Mensagens por sinal</h2>
             </div>
-          </section>
-        ))}
+            <Select value={sinal} onValueChange={setSinal}>
+              <SelectTrigger className="w-full sm:w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SINAIS_COMPRA.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            {modelos.map((modelo) => (
+              <EditorEstrategia key={modelo.id} modelo={modelo} />
+            ))}
+            {!modelos.length ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum modelo cadastrado para este sinal. Use “Sem sinal” como base provisória.
+              </p>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="rounded-md border border-dourado/40 bg-dourado/10 p-5 text-sm">
+          <h2 className="text-lg text-primary">Regras que não podem ser quebradas</h2>
+          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-muted-foreground">
+            <li>Convite não leva pitch; ele vende apenas a conexão.</li>
+            <li>O fato citado precisa ser verdadeiro e verificável.</li>
+            <li>Quem responde sai da cadência e vira conversa humana.</li>
+            <li>Limite operacional: 10 a 20 convites por dia, em horários variados.</li>
+            <li>Envio sempre manual, depois de leitura em voz alta.</li>
+          </ul>
+        </section>
       </div>
     </Shell>
   );
 }
 
-function EditorModelo({ modelo }: { modelo: Modelo }) {
+function EditorEstrategia({ modelo }: { modelo: EstrategiaMensagem }) {
   const qc = useQueryClient();
   const [corpo, setCorpo] = useState(modelo.corpo);
   useEffect(() => setCorpo(modelo.corpo), [modelo.corpo]);
 
   const salvar = useMutation({
-    mutationFn: () => salvarModelo(modelo.id, corpo),
+    mutationFn: () => salvarEstrategia(modelo.id, corpo),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["modelos"] });
-      toast.success("Modelo atualizado.");
+      qc.invalidateQueries({ queryKey: ["estrategias"] });
+      toast.success("Mensagem atualizada.");
     },
-    onError: () => toast.error("Não foi possível salvar o modelo."),
+    onError: () => toast.error("Não foi possível salvar a mensagem."),
   });
 
   return (
-    <article className="rounded-md border bg-card p-5 shadow-card">
-      <p className="label-eyebrow">{modelo.titulo}</p>
+    <article className="rounded-md border bg-background/60 p-5">
+      <p className="label-eyebrow">
+        Toque {modelo.toque} · {modelo.quando_enviar}
+      </p>
+      <h3 className="mt-1 text-lg text-primary">{modelo.titulo}</h3>
+      <p className="mt-1 text-xs text-muted-foreground">Objetivo: {modelo.objetivo}</p>
       <Textarea
-        rows={modelo.canal === "longo" ? 12 : 5}
+        rows={6}
         value={corpo}
         onChange={(e) => setCorpo(e.target.value)}
-        className="mt-3 leading-relaxed"
+        className="mt-4 leading-relaxed"
       />
       <div className="mt-4 flex flex-wrap gap-2">
         <Button size="sm" onClick={() => salvar.mutate()} disabled={corpo === modelo.corpo}>
@@ -86,7 +141,7 @@ function EditorModelo({ modelo }: { modelo: Modelo }) {
           variant="outline"
           onClick={() => {
             navigator.clipboard.writeText(corpo);
-            toast.success("Copiado.");
+            toast.success("Copiado para revisão.");
           }}
         >
           Copiar
