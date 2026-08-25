@@ -22,18 +22,24 @@ import {
 import {
   ADERENCIAS,
   DIAS_ESFRIANDO,
+  PRIORIDADES,
   SEGMENTOS,
+  SINAIS_COMPRA,
   STATUS_LIST,
   diasDesde,
   formatData,
+  prontoParaAbordagem,
   statusColor,
+  temCanalContato,
 } from "@/lib/cali";
 import {
   criarLead,
   criarVisao,
   excluirVisao,
   fetchLeads,
+  fetchLeadsExcluidos,
   fetchVisoes,
+  restaurarLead,
   type Lead,
 } from "@/lib/db";
 
@@ -60,7 +66,8 @@ type Ordem = { campo: keyof Lead; dir: "asc" | "desc" };
 
 const COLUNAS: { campo: keyof Lead; label: string; className?: string }[] = [
   { campo: "empresa", label: "Empresa" },
-  { campo: "aderencia", label: "Aderência" },
+  { campo: "prioridade", label: "Prioridade" },
+  { campo: "sinal_compra", label: "Sinal" },
   { campo: "cidade", label: "Cidade" },
   { campo: "status", label: "Status" },
   { campo: "proximo_followup", label: "Follow-up" },
@@ -71,19 +78,29 @@ function Leads() {
   const qc = useQueryClient();
   const { data: leads = [], isLoading } = useQuery({ queryKey: ["leads"], queryFn: fetchLeads });
   const { data: visoes = [] } = useQuery({ queryKey: ["visoes"], queryFn: fetchVisoes });
+  const { data: excluidos = [] } = useQuery({
+    queryKey: ["leads-excluidos"],
+    queryFn: fetchLeadsExcluidos,
+  });
 
   const [busca, setBusca] = useState("");
   const [aderencia, setAderencia] = useState("todas");
   const [segmento, setSegmento] = useState("todos");
   const [status, setStatus] = useState("todos");
-  const [followupVencido, setFollowupVencido] = useState(false);
+  const [prioridade, setPrioridade] = useState("todas");
+  const [sinal, setSinal] = useState("todos");
+  const [canal, setCanal] = useState("todos");
+  const [followup, setFollowup] = useState("todos");
+  const [somenteProntos, setSomenteProntos] = useState(false);
   const [agrupar, setAgrupar] = useState(false);
+  const [mostrarLixeira, setMostrarLixeira] = useState(false);
   const [gruposFechados, setGruposFechados] = useState<Set<string>>(new Set());
   const [ordem, setOrdem] = useState<Ordem>({ campo: "atualizado_em", dir: "desc" });
   const [aberto, setAberto] = useState<Lead | null>(null);
   const [importando, setImportando] = useState(false);
 
   const hoje = new Date().toISOString().slice(0, 10);
+  const emSeteDias = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
   const novo = useMutation({
     mutationFn: () => criarLead(),
@@ -95,7 +112,17 @@ function Leads() {
 
   const salvarVisao = useMutation({
     mutationFn: (nome: string) =>
-      criarVisao(nome, { aderencia, segmento, status, busca, followupVencido }),
+      criarVisao(nome, {
+        aderencia,
+        segmento,
+        status,
+        prioridade,
+        sinal,
+        canal,
+        followup,
+        somenteProntos,
+        busca,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["visoes"] });
       toast.success("Visão salva.");
@@ -107,6 +134,15 @@ function Leads() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["visoes"] }),
   });
 
+  const restaurar = useMutation({
+    mutationFn: (id: string) => restaurarLead(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["leads-excluidos"] });
+      toast.success("Lead restaurado.");
+    },
+  });
+
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const lista = leads.filter((l) => {
@@ -115,9 +151,46 @@ function Leads() {
         if (segmento === "__vazio__" ? !!l.segmento : l.segmento !== segmento) return false;
       }
       if (status !== "todos" && l.status !== status) return false;
-      if (followupVencido && !(l.proximo_followup && l.proximo_followup < hoje)) return false;
+      if (prioridade !== "todas" && l.prioridade !== prioridade) return false;
+      if (sinal !== "todos" && (l.sinal_compra || "Sem sinal") !== sinal) return false;
+      if (somenteProntos && !prontoParaAbordagem(l)) return false;
+      if (followup === "vencido" && !(l.proximo_followup && l.proximo_followup < hoje))
+        return false;
+      if (followup === "hoje" && l.proximo_followup !== hoje) return false;
+      if (
+        followup === "sete_dias" &&
+        !(l.proximo_followup && l.proximo_followup >= hoje && l.proximo_followup <= emSeteDias)
+      )
+        return false;
+      const temLinkedIn = Boolean(l.linkedin_decisor || l.linkedin_empresa);
+      const canais: Record<string, boolean> = {
+        com_site: Boolean(l.website),
+        sem_site: !l.website,
+        com_whatsapp: l.whatsapp === "Sim",
+        sem_whatsapp: l.whatsapp !== "Sim",
+        com_telefone: Boolean(l.telefone),
+        sem_telefone: !l.telefone,
+        com_email: Boolean(l.email),
+        sem_email: !l.email,
+        com_linkedin: temLinkedIn,
+        sem_linkedin: !temLinkedIn,
+        algum_canal: temCanalContato(l),
+        sem_canal: !temCanalContato(l),
+      };
+      if (canal !== "todos" && !canais[canal]) return false;
       if (!termo) return true;
-      return [l.empresa, l.categoria, l.cidade, l.nome_decisor, l.email, l.notas, ...(l.tags ?? [])]
+      return [
+        l.empresa,
+        l.categoria,
+        l.cidade,
+        l.nome_decisor,
+        l.email,
+        l.notas,
+        l.dor_provavel,
+        l.sinal_detalhe,
+        l.angulo_abordagem,
+        ...(l.tags ?? []),
+      ]
         .join(" ")
         .toLowerCase()
         .includes(termo);
@@ -132,7 +205,21 @@ function Leads() {
       if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
       return String(va).localeCompare(String(vb), "pt-BR") * dir;
     });
-  }, [leads, busca, aderencia, segmento, status, followupVencido, ordem, hoje]);
+  }, [
+    leads,
+    busca,
+    aderencia,
+    segmento,
+    status,
+    prioridade,
+    sinal,
+    canal,
+    followup,
+    somenteProntos,
+    ordem,
+    hoje,
+    emSeteDias,
+  ]);
 
   const grupos = useMemo(() => {
     if (!agrupar) return [{ titulo: null as string | null, itens: filtrados }];
@@ -147,20 +234,36 @@ function Leads() {
       "empresa",
       "aderencia",
       "segmento",
+      "prioridade",
+      "icp_fit",
       "categoria",
+      "cargo_decisor",
       "cidade",
+      "estado",
       "nome_decisor",
       "email",
       "whatsapp",
       "telefone",
       "linkedin_decisor",
+      "linkedin_empresa",
       "website",
       "google_maps",
       "nota_google",
       "n_avaliacoes",
       "status",
+      "sinal_compra",
+      "sinal_detalhe",
+      "sinal_data",
+      "dor_provavel",
+      "angulo_abordagem",
+      "cadencia_status",
+      "cadencia_toque",
       "proximo_followup",
+      "proximo_passo",
       "origem",
+      "objecao",
+      "resposta_objecao",
+      "perdido_motivo",
       "notas",
     ];
     const csv = Papa.unparse({
@@ -185,8 +288,12 @@ function Leads() {
     setAderencia((filtros["aderencia"] as string) ?? "todas");
     setSegmento((filtros["segmento"] as string) ?? "todos");
     setStatus((filtros["status"] as string) ?? "todos");
+    setPrioridade((filtros["prioridade"] as string) ?? "todas");
+    setSinal((filtros["sinal"] as string) ?? "todos");
+    setCanal((filtros["canal"] as string) ?? "todos");
+    setFollowup((filtros["followup"] as string) ?? "todos");
+    setSomenteProntos(Boolean(filtros["somenteProntos"]));
     setBusca((filtros["busca"] as string) ?? "");
-    setFollowupVencido(Boolean(filtros["followupVencido"]));
   }
 
   return (
@@ -201,11 +308,47 @@ function Leads() {
           <Button variant="outline" onClick={exportar}>
             Exportar CSV
           </Button>
+          <Button variant="outline" onClick={() => setMostrarLixeira((v) => !v)}>
+            Lixeira ({excluidos.length})
+          </Button>
           <Button onClick={() => novo.mutate()}>Novo lead</Button>
         </>
       }
     >
       <div className="space-y-4">
+        {mostrarLixeira ? (
+          <section className="rounded-md border bg-card p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl text-primary">Lixeira</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Exclusões são recuperáveis. Nenhum lead é apagado definitivamente pelo painel.
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setMostrarLixeira(false)}>
+                Fechar
+              </Button>
+            </div>
+            <ul className="mt-4 divide-y">
+              {excluidos.map((lead) => (
+                <li key={lead.id} className="flex items-center justify-between gap-4 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium">{lead.empresa}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Arquivado em {formatData(lead.excluido_em)}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => restaurar.mutate(lead.id)}>
+                    Restaurar
+                  </Button>
+                </li>
+              ))}
+              {!excluidos.length ? (
+                <li className="py-4 text-sm text-muted-foreground">A lixeira está vazia.</li>
+              ) : null}
+            </ul>
+          </section>
+        ) : null}
         <div className="flex flex-wrap items-center gap-3 rounded-md border bg-card p-4">
           <Input
             value={busca}
@@ -253,14 +396,67 @@ function Leads() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={prioridade} onValueChange={setPrioridade}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Prioridade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Toda prioridade</SelectItem>
+              {PRIORIDADES.map((item) => (
+                <SelectItem key={item} value={item}>
+                  {item}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sinal} onValueChange={setSinal}>
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Sinal de compra" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todo sinal</SelectItem>
+              {SINAIS_COMPRA.map((item) => (
+                <SelectItem key={item} value={item}>
+                  {item}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={canal} onValueChange={setCanal}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Canal" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todo canal</SelectItem>
+              <SelectItem value="algum_canal">Tem algum canal</SelectItem>
+              <SelectItem value="sem_canal">Sem nenhum canal</SelectItem>
+              <SelectItem value="com_site">Tem site</SelectItem>
+              <SelectItem value="sem_site">Sem site</SelectItem>
+              <SelectItem value="com_whatsapp">Tem WhatsApp</SelectItem>
+              <SelectItem value="sem_whatsapp">Sem WhatsApp</SelectItem>
+              <SelectItem value="com_telefone">Tem telefone</SelectItem>
+              <SelectItem value="sem_telefone">Sem telefone</SelectItem>
+              <SelectItem value="com_email">Tem e-mail</SelectItem>
+              <SelectItem value="sem_email">Sem e-mail</SelectItem>
+              <SelectItem value="com_linkedin">Tem LinkedIn</SelectItem>
+              <SelectItem value="sem_linkedin">Sem LinkedIn</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={followup} onValueChange={setFollowup}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Follow-up" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todo follow-up</SelectItem>
+              <SelectItem value="vencido">Vencidos</SelectItem>
+              <SelectItem value="hoje">Para hoje</SelectItem>
+              <SelectItem value="sete_dias">Próximos 7 dias</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="flex items-center gap-2">
-            <Switch
-              id="vencido"
-              checked={followupVencido}
-              onCheckedChange={setFollowupVencido}
-            />
-            <Label htmlFor="vencido" className="text-xs">
-              Follow-up vencido
+            <Switch id="prontos" checked={somenteProntos} onCheckedChange={setSomenteProntos} />
+            <Label htmlFor="prontos" className="text-xs">
+              Prontos para abordagem
             </Label>
           </div>
           <div className="flex items-center gap-2">
@@ -382,9 +578,15 @@ function Leads() {
                               <span className="block text-xs text-muted-foreground">
                                 {l.categoria ?? "—"}
                               </span>
+                              {prontoParaAbordagem(l) ? (
+                                <span className="mt-1 inline-block text-[10px] font-medium uppercase tracking-wide text-[#4C7A52]">
+                                  pronto para abordagem
+                                </span>
+                              ) : null}
                             </td>
-                            <td className="px-3 py-2.5 text-muted-foreground">
-                              {l.aderencia ?? "—"}
+                            <td className="px-3 py-2.5 text-muted-foreground">{l.prioridade}</td>
+                            <td className="max-w-44 px-3 py-2.5 text-xs text-muted-foreground">
+                              {l.sinal_compra || "Sem sinal"}
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground">{l.cidade ?? "—"}</td>
                             <td className="px-3 py-2.5">
