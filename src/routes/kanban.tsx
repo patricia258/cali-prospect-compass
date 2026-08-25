@@ -36,8 +36,27 @@ function Kanban() {
   const mover = useMutation({
     mutationFn: async ({ lead, status }: { lead: Lead; status: string }) => {
       const patch: Partial<Lead> = { status };
-      if (status === "Mensagem enviada" && !lead.proximo_followup) {
-        patch.proximo_followup = proximosDiasUteis(3);
+      const agora = new Date().toISOString();
+      if (status === "Abordagem enviada") {
+        patch.primeiro_contato_em = lead.primeiro_contato_em ?? agora;
+        patch.ultima_interacao = agora;
+        patch.cadencia_status = "Ativa";
+        patch.cadencia_toque = Math.max(1, lead.cadencia_toque || 0);
+        patch.proximo_followup = lead.proximo_followup ?? proximosDiasUteis(2);
+      }
+      if (status === "Em cadência") patch.cadencia_status = "Ativa";
+      if (status === "Conversa aberta") {
+        patch.respondeu_em = lead.respondeu_em ?? agora;
+        patch.ultima_interacao = agora;
+        patch.cadencia_status = "Pausada por resposta";
+        patch.proximo_followup = null;
+      }
+      if (status === "Diagnóstico agendado") patch.diagnostico_agendado_em = agora;
+      if (status === "Mapa de People enviado/realizado") patch.mapa_people_em = agora;
+      if (status === "Proposta enviada") patch.proposta_enviada_em = agora;
+      if (status === "Cliente") {
+        patch.cadencia_status = "Concluída";
+        patch.proximo_followup = null;
       }
       return atualizarLead(lead, patch);
     },
@@ -64,9 +83,18 @@ function Kanban() {
               onDrop={() => {
                 const lead = leads.find((l) => l.id === arrastando);
                 setArrastando(null);
+                if (lead && status === "Sem fit / perdido" && !lead.perdido_motivo) {
+                  setAberto(lead);
+                  toast.info("Abra o status “Sem fit / perdido” na ficha e informe o motivo.");
+                  return;
+                }
                 if (lead && lead.status !== status) mover.mutate({ lead, status });
               }}
-              className={fechada ? "flex w-12 shrink-0 flex-col rounded-md border bg-card/70" : "flex w-64 shrink-0 flex-col rounded-md border bg-card/70"}
+              className={
+                fechada
+                  ? "flex w-12 shrink-0 flex-col rounded-md border bg-card/70"
+                  : "flex w-64 shrink-0 flex-col rounded-md border bg-card/70"
+              }
             >
               <header
                 className="flex cursor-pointer items-center gap-2 border-b px-3 py-2.5"
