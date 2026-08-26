@@ -1,7 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ExternalLink, Globe, Linkedin, MapPin, MessageCircle, Phone } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  Globe,
+  Linkedin,
+  LoaderCircle,
+  MapPin,
+  MessageCircle,
+  Phone,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -34,7 +44,6 @@ import {
   SINAIS_COMPRA,
   STATUS_LIST,
   WHATSAPP_OPCOES,
-  formatData,
   formatDataHora,
   pendenciasAbordagem,
   preencherModelo,
@@ -109,8 +118,28 @@ export function LeadDrawer({
 }) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState<Lead | null>(lead);
+  const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">("saved");
+  const draftRef = useRef<Lead | null>(lead);
+  const savedLeadRef = useRef<Lead | null>(lead);
+  const pendingRef = useRef<Partial<Lead>>({});
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savePromiseRef = useRef<Promise<boolean> | null>(null);
 
-  useEffect(() => setDraft(lead), [lead]);
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    draftRef.current = lead;
+    savedLeadRef.current = lead;
+    pendingRef.current = {};
+    setDraft(lead);
+    setSaveState("saved");
+  }, [lead]);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
 
   const { data: eventos = [] } = useQuery({
     queryKey: ["eventos", lead?.id],
@@ -123,23 +152,18 @@ export function LeadDrawer({
     queryFn: fetchEstrategias,
   });
 
-  const salvar = useMutation({
-    mutationFn: (patch: Partial<Lead>) => atualizarLead(lead!, patch),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["leads"] });
-      qc.invalidateQueries({ queryKey: ["eventos", lead?.id] });
-      toast.success("Lead atualizado.");
-    },
-    onError: () => toast.error("Não foi possível salvar."),
-  });
-
   const remover = useMutation({
-    mutationFn: () => excluirLead(lead!.id),
+    mutationFn: async () => {
+      const salvou = await flushAutoSave();
+      if (!salvou) throw new Error("Há alterações pendentes.");
+      return excluirLead(lead!.id);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["leads"] });
       onOpenChange(false);
       toast.success("Lead movido para a lixeira.");
     },
+    onError: () => toast.error("Não foi possível mover o lead para a lixeira."),
   });
 
   const estrategiasDoSinal = useMemo(() => {
@@ -147,8 +171,84 @@ export function LeadDrawer({
     return estrategias.filter((m) => m.sinal === sinal);
   }, [estrategias, draft?.sinal_compra]);
 
+  async function flushAutoSave(): Promise<boolean> {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (savePromiseRef.current) return savePromiseRef.current;
+
+    const base = savedLeadRef.current;
+    const patch = pendingRef.current;
+    if (!base || Object.keys(patch).length === 0) return true;
+
+    const resultado = { ...base, ...patch };
+    if (resultado.status === "Sem fit / perdido" && !resultado.perdido_motivo?.trim()) {
+      setSaveState("pending");
+      return false;
+    }
+
+    pendingRef.current = {};
+    setSaveState("saving");
+
+    const leadId = base.id;
+    const task = (async () => {
+      let sucesso = false;
+      try {
+        const atualizado = await atualizarLead(base, patch);
+        if (savedLeadRef.current?.id !== leadId) return true;
+
+        savedLeadRef.current = atualizado;
+        const proximoDraft = { ...atualizado, ...pendingRef.current } as Lead;
+        draftRef.current = proximoDraft;
+        setDraft(proximoDraft);
+        setSaveState(Object.keys(pendingRef.current).length ? "pending" : "saved");
+        qc.setQueryData<Lead[]>(["leads"], (atuais) =>
+          atuais?.map((item) => (item.id === atualizado.id ? atualizado : item)),
+        );
+        if (patch.status || patch.notas !== undefined) {
+          void qc.invalidateQueries({ queryKey: ["eventos", leadId] });
+        }
+        sucesso = true;
+      } catch {
+        if (savedLeadRef.current?.id === leadId) {
+          pendingRef.current = { ...patch, ...pendingRef.current };
+          setSaveState("error");
+          toast.error("Não foi possível salvar automaticamente. Tente novamente.");
+        }
+      } finally {
+        savePromiseRef.current = null;
+      }
+
+      if (sucesso && Object.keys(pendingRef.current).length > 0) {
+        return flushAutoSave();
+      }
+      return sucesso;
+    })();
+
+    savePromiseRef.current = task;
+    return task;
+  }
+
   if (!draft) return null;
-  const set = (patch: Partial<Lead>) => setDraft({ ...draft, ...patch });
+  const set = (patch: Partial<Lead>, immediate = false) => {
+    const atual = draftRef.current;
+    if (!atual) return;
+
+    const proximo = { ...atual, ...patch } as Lead;
+    draftRef.current = proximo;
+    pendingRef.current = { ...pendingRef.current, ...patch };
+    setDraft(proximo);
+    setSaveState("pending");
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (immediate) {
+      void flushAutoSave();
+    } else {
+      timerRef.current = setTimeout(() => void flushAutoSave(), 700);
+    }
+  };
 
   const wa = draft.whatsapp === "Sim" ? whatsappLink(draft.telefone) : null;
   const temAcaoRapida =
@@ -157,30 +257,7 @@ export function LeadDrawer({
   const pendencias = pendenciasAbordagem(draft);
 
   function statusChange(novo: string) {
-    const patch: Partial<Lead> = { status: novo };
-    const agora = new Date().toISOString();
-    if (novo === "Abordagem enviada") {
-      patch.primeiro_contato_em = draft!.primeiro_contato_em ?? agora;
-      patch.ultima_interacao = agora;
-      patch.cadencia_status = "Ativa";
-      patch.cadencia_toque = Math.max(1, draft!.cadencia_toque || 0);
-      patch.proximo_followup = draft!.proximo_followup ?? proximosDiasUteis(2);
-    }
-    if (novo === "Em cadência") patch.cadencia_status = "Ativa";
-    if (novo === "Conversa aberta") {
-      patch.respondeu_em = draft!.respondeu_em ?? agora;
-      patch.ultima_interacao = agora;
-      patch.cadencia_status = "Pausada por resposta";
-      patch.proximo_followup = null;
-    }
-    if (novo === "Diagnóstico agendado") patch.diagnostico_agendado_em = agora;
-    if (novo === "Mapa de People enviado/realizado") patch.mapa_people_em = agora;
-    if (novo === "Proposta enviada") patch.proposta_enviada_em = agora;
-    if (novo === "Cliente" || novo === "Sem fit / perdido") {
-      patch.cadencia_status = "Concluída";
-      patch.proximo_followup = null;
-    }
-    set(patch);
+    set({ status: novo }, true);
   }
 
   async function copiar(corpo: string, estrategia?: EstrategiaMensagem) {
@@ -207,6 +284,11 @@ export function LeadDrawer({
       return;
     }
     try {
+      const salvou = await flushAutoSave();
+      if (!salvou) {
+        toast.error("Informe o motivo obrigatório antes de continuar.");
+        return;
+      }
       const ultimo = estrategia.toque >= 4;
       const patch: Partial<Lead> = {
         cadencia_toque: estrategia.toque,
@@ -220,14 +302,19 @@ export function LeadDrawer({
       };
       if (estrategia.toque === 1)
         patch.primeiro_contato_em = draft!.primeiro_contato_em ?? new Date().toISOString();
-      const atualizado = await atualizarLead(draft!, patch);
+      const base = savedLeadRef.current ?? draft!;
+      const atualizado = await atualizarLead(base, patch);
+      savedLeadRef.current = atualizado;
+      draftRef.current = atualizado;
       setDraft(atualizado);
       await registrarEvento({
         lead_id: draft!.id,
         tipo: "toque_enviado",
         descricao: `Toque ${estrategia.toque} marcado como enviado: ${estrategia.titulo}.`,
       });
-      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.setQueryData<Lead[]>(["leads"], (atuais) =>
+        atuais?.map((item) => (item.id === atualizado.id ? atualizado : item)),
+      );
       qc.invalidateQueries({ queryKey: ["eventos", draft!.id] });
       toast.success(ultimo ? "Cadência concluída." : "Próximo toque agendado.");
     } catch {
@@ -236,7 +323,21 @@ export function LeadDrawer({
   }
 
   return (
-    <Sheet open={!!lead} onOpenChange={onOpenChange}>
+    <Sheet
+      open={!!lead}
+      onOpenChange={(open) => {
+        if (open) {
+          onOpenChange(true);
+          return;
+        }
+        void flushAutoSave().then((salvou) => {
+          if (salvou) onOpenChange(false);
+          else if (draftRef.current?.status === "Sem fit / perdido") {
+            toast.error("Informe o motivo da perda antes de fechar a ficha.");
+          }
+        });
+      }}
+    >
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader className="gap-3 pb-2">
           <SheetTitle className="font-display text-2xl text-primary">{draft.empresa}</SheetTitle>
@@ -252,7 +353,29 @@ export function LeadDrawer({
               {pronto ? "Pronto para abordagem" : "Falta contexto para abordar"}
             </span>
             <span className="text-xs text-muted-foreground">
-              Atualizado em {formatData(draft.atualizado_em)}
+              Última alteração em {formatDataHora(draft.atualizado_em)}
+            </span>
+            <span
+              className={
+                saveState === "error"
+                  ? "inline-flex items-center gap-1 text-xs text-destructive"
+                  : "inline-flex items-center gap-1 text-xs text-muted-foreground"
+              }
+            >
+              {saveState === "saving" ? (
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+              ) : saveState === "error" ? (
+                <AlertCircle className="h-3.5 w-3.5" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              {saveState === "saving"
+                ? "Salvando…"
+                : saveState === "pending"
+                  ? "Salvamento automático em instantes"
+                  : saveState === "error"
+                    ? "Erro ao salvar"
+                    : "Salvo automaticamente"}
             </span>
           </SheetDescription>
           {temAcaoRapida && (
@@ -591,21 +714,10 @@ export function LeadDrawer({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-              <Button
-                onClick={() => {
-                  const { id, criado_em, atualizado_em, ...patch } = draft;
-                  void id;
-                  void criado_em;
-                  void atualizado_em;
-                  salvar.mutate(patch);
-                }}
-                disabled={
-                  salvar.isPending ||
-                  (draft.status === "Sem fit / perdido" && !draft.perdido_motivo?.trim())
-                }
-              >
-                Salvar alterações
-              </Button>
+              <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Tudo o que você altera nesta ficha é salvo automaticamente.
+              </p>
               <Button
                 variant="ghost"
                 className="text-destructive"
