@@ -28,20 +28,21 @@ export type Status = (typeof STATUS_LIST)[number];
  * `null` significa "sem cor de destaque" — o StatusBadge renderiza neutro nesse caso.
  */
 export const STATUS_COLORS: Record<string, string | null> = {
-  "Novo lead": null,
-  "Enriquecendo dados": "#9A8B7C",
-  Qualificado: "#B58C52",
-  "Sinal identificado": "#B58C52",
-  "Abordagem enviada": "#A27C48",
-  "Em cadência": "#C97A3D",
-  "Conversa aberta": "#D8B255",
-  "Diagnóstico agendado": "#7B916D",
-  "Mapa de People enviado/realizado": "#607A61",
-  "Proposta enviada": "#4C7A52",
-  Negociação: "#3F6B52",
-  Cliente: "#4C7A52",
-  "Sem fit / perdido": "#A5442F",
+  "Novo lead": "#6B6259",
+  "Enriquecendo dados": "#7A6A57",
+  Qualificado: "#9A6B18",
+  "Sinal identificado": "#B07406",
+  "Abordagem enviada": "#B45309",
+  "Em cadência": "#C2410C",
+  "Conversa aberta": "#A16207",
+  "Diagnóstico agendado": "#2F6F4E",
+  "Mapa de People enviado/realizado": "#1F6F5C",
+  "Proposta enviada": "#15803D",
+  Negociação: "#0F766E",
+  Cliente: "#166534",
+  "Sem fit / perdido": "#991B1B",
 };
+
 
 /** Cor "estrutural" — sempre retorna uma cor, mesmo para status neutros (usada em bordas/kanban). */
 export function statusColor(status?: string | null) {
