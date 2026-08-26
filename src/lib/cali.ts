@@ -86,16 +86,19 @@ export const CADENCIA_STATUS = [
 ] as const;
 
 export const CADENCIA = [
-  { toque: 1, nome: "Convite com nota", quando: "Dia 1", objetivo: "Abrir conexão" },
+  { toque: 1, nome: "Abertura pelo sinal", quando: "Dia 1", objetivo: "Abrir conexão" },
   {
     toque: 2,
-    nome: "Mensagem de valor",
-    quando: "1–2 dias após aceitar",
+    nome: "Insight útil",
+    quando: "1–2 dias após a conexão",
     objetivo: "Abrir conversa",
   },
-  { toque: 3, nome: "Ponte para a dor", quando: "3–4 dias depois", objetivo: "Diagnosticar" },
+  { toque: 3, nome: "Pergunta diagnóstica", quando: "3–4 dias depois", objetivo: "Diagnosticar" },
   { toque: 4, nome: "Convite claro", quando: "3–4 dias depois", objetivo: "Agendar 20 minutos" },
 ] as const;
+
+export const MENSAGEM_ROTEAMENTO =
+  "Oi! Tudo bem? Sou Patrícia Lima. Você consegue me dizer quem cuida das decisões sobre estrutura do time e desenvolvimento das lideranças na [Empresa]? Obrigada.";
 
 export const FUNIL = [
   "Abordagem enviada",
@@ -201,6 +204,9 @@ export const HEADER_MAP: Record<string, string> = {
   sinal: "sinal_compra",
   sinaldecompra: "sinal_compra",
   detalhedosinal: "sinal_detalhe",
+  fontedosinal: "sinal_fonte_url",
+  linksinal: "sinal_fonte_url",
+  urldosinal: "sinal_fonte_url",
   prioridade: "prioridade",
   responsavel: "responsavel",
   proximopasso: "proximo_passo",
@@ -248,15 +254,35 @@ export function prontoParaAbordagem(lead: {
   empresa?: string | null;
   nome_decisor?: string | null;
   angulo_abordagem?: string | null;
-  dor_provavel?: string | null;
+  sinal_compra?: string | null;
   sinal_detalhe?: string | null;
   email?: string | null;
   telefone?: string | null;
   linkedin_decisor?: string | null;
   whatsapp?: string | null;
 }) {
-  const contexto = lead.angulo_abordagem || lead.dor_provavel || lead.sinal_detalhe;
-  return Boolean(lead.empresa && lead.nome_decisor && temCanalContato(lead) && contexto);
+  return pendenciasAbordagem(lead).length === 0;
+}
+
+export function pendenciasAbordagem(lead: {
+  empresa?: string | null;
+  nome_decisor?: string | null;
+  angulo_abordagem?: string | null;
+  sinal_compra?: string | null;
+  sinal_detalhe?: string | null;
+  email?: string | null;
+  telefone?: string | null;
+  linkedin_decisor?: string | null;
+  whatsapp?: string | null;
+}) {
+  const pendencias: string[] = [];
+  if (!lead.empresa?.trim()) pendencias.push("empresa");
+  if (!lead.nome_decisor?.trim()) pendencias.push("nome do decisor");
+  if (!temCanalContato(lead)) pendencias.push("canal de contato");
+  if (!lead.sinal_compra || lead.sinal_compra === "Sem sinal") pendencias.push("sinal real");
+  if (!lead.sinal_detalhe?.trim()) pendencias.push("detalhe verificável do sinal");
+  if (!lead.angulo_abordagem?.trim()) pendencias.push("ângulo de abordagem");
+  return pendencias;
 }
 
 export function diasDesde(iso?: string | null) {
@@ -281,8 +307,16 @@ export function formatDataHora(iso?: string | null) {
   });
 }
 
-export function preencherModelo(corpo: string, empresa?: string | null, nome?: string | null) {
+export function preencherModelo(
+  corpo: string,
+  dados: {
+    empresa?: string | null;
+    nome?: string | null;
+    sinal?: string | null;
+  },
+) {
   return corpo
-    .replaceAll("[Empresa]", empresa || "a empresa")
-    .replaceAll("[Nome]", (nome || "").split(" ")[0] || "tudo bem");
+    .replaceAll("[Empresa]", dados.empresa || "a empresa")
+    .replaceAll("[Nome]", (dados.nome || "").split(" ")[0] || "tudo bem")
+    .replaceAll("[Sinal]", dados.sinal || "o movimento que vocês anunciaram");
 }
