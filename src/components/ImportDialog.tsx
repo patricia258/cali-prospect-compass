@@ -63,7 +63,7 @@ function rowToLead(row: Record<string, unknown>): NovoLead | null {
     dor_provavel: g("dor_provavel") || null,
     pessoas_chave: g("pessoas_chave") || null,
     estagio_crescimento: g("estagio_crescimento") || null,
-    sinal_compra: g("sinal_compra") || "Sem sinal",
+    sinal_compra: g("sinal_compra") || "Sem sinal forte",
     sinal_detalhe: g("sinal_detalhe") || null,
     sinal_fonte_url: g("sinal_fonte_url") || null,
     prioridade: g("prioridade") || "Média",
