@@ -25,6 +25,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import {
   ADERENCIAS,
   CADENCIA_STATUS,
+  MENSAGEM_PONTE_MAPA,
   MENSAGEM_ROTEAMENTO,
   ORIGENS,
   PAPEIS_CONTATO,
@@ -142,8 +143,7 @@ export function LeadDrawer({
   });
 
   const estrategiasDoSinal = useMemo(() => {
-    const sinal = draft?.sinal_compra || "Sem sinal";
-    if (sinal === "Sem sinal") return [];
+    const sinal = draft?.sinal_compra || "Sem sinal forte";
     return estrategias.filter((m) => m.sinal === sinal);
   }, [estrategias, draft?.sinal_compra]);
 
@@ -438,7 +438,7 @@ export function LeadDrawer({
               <div className="space-y-1.5">
                 <Label>Sinal de compra</Label>
                 <Select
-                  value={draft.sinal_compra || "Sem sinal"}
+                  value={draft.sinal_compra || "Sem sinal forte"}
                   onValueChange={(v) => set({ sinal_compra: v })}
                 >
                   <SelectTrigger>
@@ -720,6 +720,21 @@ export function LeadDrawer({
                   </article>
                 );
               })}
+            <article className="rounded-md border border-dourado/40 bg-dourado/5 p-4">
+              <p className="label-eyebrow">Depois que o lead responder</p>
+              <h3 className="mt-1 text-base text-primary">Ponte para o Mapa de People</h3>
+              <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                {MENSAGEM_PONTE_MAPA}
+              </pre>
+              <Button
+                className="mt-4"
+                size="sm"
+                variant="outline"
+                onClick={() => copiar(MENSAGEM_PONTE_MAPA)}
+              >
+                Copiar ponte para o Mapa
+              </Button>
+            </article>
           </TabsContent>
 
           <TabsContent value="historico" className="mt-6">
