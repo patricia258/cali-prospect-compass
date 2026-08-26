@@ -14,6 +14,7 @@ ALTER TABLE public.leads
   ADD COLUMN IF NOT EXISTS estagio_crescimento text,
   ADD COLUMN IF NOT EXISTS sinal_compra text,
   ADD COLUMN IF NOT EXISTS sinal_detalhe text,
+  ADD COLUMN IF NOT EXISTS sinal_fonte_url text,
   ADD COLUMN IF NOT EXISTS sinal_data date,
   ADD COLUMN IF NOT EXISTS prioridade text NOT NULL DEFAULT 'Média',
   ADD COLUMN IF NOT EXISTS responsavel text NOT NULL DEFAULT 'Patrícia',
@@ -106,16 +107,16 @@ DROP POLICY IF EXISTS "leads_update_patricia" ON public.leads;
 
 CREATE POLICY "leads_select_patricia" ON public.leads
   FOR SELECT TO authenticated
-  USING ((auth.jwt() ->> 'email') = 'patricia@calirh.com');
+  USING (((SELECT auth.jwt()) ->> 'email') = 'patricia@calirh.com');
 
 CREATE POLICY "leads_insert_patricia" ON public.leads
   FOR INSERT TO authenticated
-  WITH CHECK ((auth.jwt() ->> 'email') = 'patricia@calirh.com');
+  WITH CHECK (((SELECT auth.jwt()) ->> 'email') = 'patricia@calirh.com');
 
 CREATE POLICY "leads_update_patricia" ON public.leads
   FOR UPDATE TO authenticated
-  USING ((auth.jwt() ->> 'email') = 'patricia@calirh.com')
-  WITH CHECK ((auth.jwt() ->> 'email') = 'patricia@calirh.com');
+  USING (((SELECT auth.jwt()) ->> 'email') = 'patricia@calirh.com')
+  WITH CHECK (((SELECT auth.jwt()) ->> 'email') = 'patricia@calirh.com');
 
 CREATE TABLE IF NOT EXISTS public.estrategias_mensagem (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -154,94 +155,96 @@ ALTER TABLE public.importacoes_leads ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "estrategias_only_patricia" ON public.estrategias_mensagem;
 CREATE POLICY "estrategias_only_patricia" ON public.estrategias_mensagem
   FOR ALL TO authenticated
-  USING ((auth.jwt() ->> 'email') = 'patricia@calirh.com')
-  WITH CHECK ((auth.jwt() ->> 'email') = 'patricia@calirh.com');
+  USING (((SELECT auth.jwt()) ->> 'email') = 'patricia@calirh.com')
+  WITH CHECK (((SELECT auth.jwt()) ->> 'email') = 'patricia@calirh.com');
 
 DROP POLICY IF EXISTS "importacoes_only_patricia" ON public.importacoes_leads;
 CREATE POLICY "importacoes_only_patricia" ON public.importacoes_leads
   FOR SELECT TO authenticated
-  USING ((auth.jwt() ->> 'email') = 'patricia@calirh.com');
+  USING (((SELECT auth.jwt()) ->> 'email') = 'patricia@calirh.com');
 
 DROP POLICY IF EXISTS "importacoes_insert_patricia" ON public.importacoes_leads;
 CREATE POLICY "importacoes_insert_patricia" ON public.importacoes_leads
   FOR INSERT TO authenticated
-  WITH CHECK ((auth.jwt() ->> 'email') = 'patricia@calirh.com');
+  WITH CHECK (((SELECT auth.jwt()) ->> 'email') = 'patricia@calirh.com');
 
 DROP TRIGGER IF EXISTS trg_estrategias_atualizado_em ON public.estrategias_mensagem;
 CREATE TRIGGER trg_estrategias_atualizado_em
 BEFORE UPDATE ON public.estrategias_mensagem
 FOR EACH ROW EXECUTE FUNCTION public.set_atualizado_em();
 
+-- Sem sinal não recebe cadência comercial. Nesse caso, o app mostra apenas o roteiro de
+-- identificação do decisor e mantém o lead na fila de enriquecimento.
+DELETE FROM public.estrategias_mensagem WHERE sinal = 'Sem sinal';
+
 INSERT INTO public.estrategias_mensagem (sinal, toque, titulo, quando_enviar, objetivo, corpo)
 VALUES
-('Sem sinal', 1, 'Convite contextual', 'Dia 1', 'Abrir a conexão sem pitch',
- 'Oi, [Nome]. Tenho acompanhado empresas em fase de estruturação e crescimento. Na [Empresa], esse tema já aparece no radar das lideranças?'),
-('Sem sinal', 2, 'Insight de valor', '1–2 dias após aceitar', 'Abrir conversa',
- 'Uma coisa que observo em empresas em crescimento: a operação costuma ganhar velocidade antes de papéis, liderança e rituais de gestão. O custo aparece como sobrecarga e decisões concentradas. Isso conversa com o momento da [Empresa]?'),
-('Sem sinal', 3, 'Ponte para a dor', '3–4 dias depois', 'Diagnosticar prioridade',
- 'Hoje, o desafio de vocês está mais em organizar responsabilidades, fortalecer as lideranças ou dar previsibilidade ao crescimento do time?'),
-('Sem sinal', 4, 'Convite claro', '3–4 dias depois', 'Agendar conversa',
- 'Se fizer sentido, podemos olhar isso por 20 minutos. Tenho [Horário 1] ou [Horário 2]. Qual funciona melhor?'),
+('Engajou em conteúdo', 1, 'Abrir pelo conteúdo', 'Dia 1', 'Reconhecer o sinal sem vender',
+ 'Oi, [Nome]. Vi sua interação com [Sinal]. É um tema que também observo pelo lado da liderança e da organização do time. Vamos nos conectar?'),
+('Engajou em conteúdo', 2, 'Acrescentar uma lente', '1–2 dias após a conexão', 'Entregar um insight curto',
+ 'Quando esse tema começa a aparecer, o problema raramente é só processo. Quase sempre há uma decisão, um papel ou uma liderança pedindo mais clareza.'),
+('Engajou em conteúdo', 3, 'Checar se existe prioridade', '3–4 dias depois', 'Entender o contexto real',
+ 'Na [Empresa], esse assunto já aparece na prática ou foi mais uma reflexão que chamou sua atenção?'),
+('Engajou em conteúdo', 4, 'Convidar com baixo atrito', '3–4 dias depois', 'Agendar 20 minutos',
+ 'Se estiver no radar, topa uma conversa de 20 minutos? Tenho [Horário 1] ou [Horário 2].'),
 
-('Engajou em conteúdo', 1, 'Convite pelo conteúdo', 'Dia 1', 'Reconhecer o sinal real',
- 'Oi, [Nome]. Vi sua interação no conteúdo sobre [Sinal específico]. Gostei especialmente do ponto sobre [Detalhe verificável]. Vamos nos conectar?'),
-('Engajou em conteúdo', 2, 'Insight relacionado', '1–2 dias após aceitar', 'Entregar valor',
- 'Aquele tema costuma aparecer quando a empresa cresce mais rápido do que a clareza de papéis e liderança. Uma boa pergunta é: o que hoje ainda depende de poucas pessoas para funcionar?'),
-('Engajou em conteúdo', 3, 'Ponte pelo contexto', '3–4 dias depois', 'Diagnosticar prioridade',
- 'Na [Empresa], esse assunto está mais ligado a crescimento, sobrecarga das lideranças ou organização do RH?'),
-('Engajou em conteúdo', 4, 'Convite de 20 minutos', '3–4 dias depois', 'Agendar conversa',
- 'A conversa ficou boa. Faz sentido aprofundarmos por 20 minutos? Tenho [Horário 1] ou [Horário 2].'),
+('Visitou perfil', 1, 'Abrir pelo encontro no perfil', 'Dia 1', 'Criar conexão com naturalidade',
+ 'Oi, [Nome]. Vi que você passou pelo meu perfil. Trabalho com empresas que estão organizando pessoas e liderança enquanto crescem. Vamos nos conectar?'),
+('Visitou perfil', 2, 'Compartilhar um padrão', '1–2 dias após a conexão', 'Entregar um insight curto',
+ 'Um sinal que vejo com frequência é quando decisões sobre pessoas começam a consumir tempo demais de quem lidera. Normalmente falta clareza antes de faltar esforço.'),
+('Visitou perfil', 3, 'Abrir diagnóstico', '3–4 dias depois', 'Descobrir a prioridade',
+ 'Na [Empresa], qual tema pede mais clareza hoje: papéis, liderança, cultura ou rotina de gestão?'),
+('Visitou perfil', 4, 'Convidar para uma leitura', '3–4 dias depois', 'Agendar 20 minutos',
+ 'Se fizer sentido, podemos explorar isso por 20 minutos. Tenho [Horário 1] ou [Horário 2].'),
 
-('Visitou perfil', 1, 'Convite sem pressupor intenção', 'Dia 1', 'Criar conexão com naturalidade',
- 'Oi, [Nome]. Vi que nossos caminhos se cruzaram por aqui. Tenho trabalhado com empresas que precisam organizar pessoas e liderança sem criar uma estrutura pesada. Vamos nos conectar?'),
-('Visitou perfil', 2, 'Valor antes da oferta', '1–2 dias após aceitar', 'Abrir conversa',
- 'O sinal que mais vejo antes de uma empresa buscar apoio é simples: decisões de pessoas começam a consumir tempo demais da liderança. Como esse tema aparece hoje na [Empresa]?'),
-('Visitou perfil', 3, 'Pergunta diagnóstica', '3–4 dias depois', 'Entender a dor',
- 'Se você tivesse que escolher um ponto para dar mais clareza agora, seria liderança, papéis, cultura ou rotina de gestão?'),
-('Visitou perfil', 4, 'Convite objetivo', '3–4 dias depois', 'Agendar conversa',
- 'Posso te mostrar como fazemos essa leitura no Mapa de People. São 20 minutos. Tenho [Horário 1] ou [Horário 2].'),
+('Empresa contratando', 1, 'Abrir pela contratação', 'Dia 1', 'Conectar pelo movimento real',
+ 'Oi, [Nome]. Vi [Sinal] na [Empresa]. Quando o time cresce, clareza de papéis e liderança costuma virar uma pauta cedo. Vamos nos conectar?'),
+('Empresa contratando', 2, 'Mostrar o efeito da escala', '1–2 dias após a conexão', 'Entregar um insight curto',
+ 'Contratar aumenta capacidade, mas também amplia a necessidade de alinhar papéis, decisões e integração. Quando isso atrasa, o time cresce e a dependência das pessoas-chave cresce junto.'),
+('Empresa contratando', 3, 'Checar o impacto', '3–4 dias depois', 'Entender o contexto real',
+ 'Como vocês estão evitando que esse crescimento aumente a sobrecarga ou concentre ainda mais as decisões?'),
+('Empresa contratando', 4, 'Convidar para uma leitura', '3–4 dias depois', 'Agendar 20 minutos',
+ 'Se essa pauta estiver viva, topa uma conversa de 20 minutos? Tenho [Horário 1] ou [Horário 2].'),
 
-('Empresa contratando', 1, 'Convite pela contratação', 'Dia 1', 'Conectar pelo momento da empresa',
- 'Oi, [Nome]. Vi que a [Empresa] está ampliando o time. Crescer sem perder clareza, cultura e qualidade de entrega vira uma pauta importante nessa fase. Vamos nos conectar?'),
-('Empresa contratando', 2, 'Insight de contratação', '1–2 dias após aceitar', 'Entregar valor',
- 'Contratação resolve capacidade, mas também aumenta a exigência sobre papéis, liderança e integração. Quando isso não acompanha, o time cresce e a dependência das pessoas-chave também.'),
-('Empresa contratando', 3, 'Ponte para a dor', '3–4 dias depois', 'Diagnosticar prioridade',
- 'Como vocês estão cuidando para que a expansão do time não aumente sobrecarga ou perda de alinhamento?'),
-('Empresa contratando', 4, 'Convite claro', '3–4 dias depois', 'Agendar conversa',
- 'Faz sentido olharmos esse momento por 20 minutos? Tenho [Horário 1] ou [Horário 2].'),
+('Crescimento / expansão', 1, 'Abrir pela expansão', 'Dia 1', 'Conectar pelo movimento real',
+ 'Oi, [Nome]. Vi [Sinal] na [Empresa]. Em expansão, a operação costuma acelerar antes da organização das pessoas. Vamos nos conectar?'),
+('Crescimento / expansão', 2, 'Mostrar um ponto de atenção', '1–2 dias após a conexão', 'Entregar um insight curto',
+ 'Uma pergunta útil nessa fase é: quais decisões ainda dependem do fundador ou de poucas lideranças? Essa concentração costuma mostrar onde o crescimento pode travar.'),
+('Crescimento / expansão', 3, 'Checar a estrutura', '3–4 dias depois', 'Descobrir a prioridade',
+ 'Como vocês estão ajustando papéis e liderança para acompanhar esse movimento sem criar uma estrutura pesada?'),
+('Crescimento / expansão', 4, 'Convidar para uma leitura', '3–4 dias depois', 'Agendar 20 minutos',
+ 'Se for uma pauta atual, podemos olhar isso por 20 minutos. Tenho [Horário 1] ou [Horário 2].'),
 
-('Crescimento / expansão', 1, 'Convite pela expansão', 'Dia 1', 'Conectar pelo sinal real',
- 'Oi, [Nome]. Vi o movimento de crescimento da [Empresa]. Nessa fase, a operação costuma acelerar antes da organização das pessoas. Vamos nos conectar?'),
-('Crescimento / expansão', 2, 'Insight de escala', '1–2 dias após aceitar', 'Entregar valor',
- 'Uma pergunta útil em expansão é: quais decisões ainda dependem do fundador ou de poucas lideranças? Esse mapa costuma revelar onde a escala pode travar.'),
-('Crescimento / expansão', 3, 'Ponte para a estrutura', '3–4 dias depois', 'Diagnosticar prioridade',
- 'Como vocês estão olhando para liderança, papéis e estrutura para acompanhar esse crescimento?'),
-('Crescimento / expansão', 4, 'Convite claro', '3–4 dias depois', 'Agendar conversa',
- 'Se for uma pauta atual, podemos fazer uma leitura inicial em 20 minutos. Tenho [Horário 1] ou [Horário 2].'),
-
-('Novo cargo', 1, 'Convite pelo novo momento', 'Dia 1', 'Reconhecer a mudança',
- 'Oi, [Nome]. Vi seu novo momento na [Empresa]. Início de cadeira costuma trazer uma leitura rápida do que precisa ser preservado e do que precisa mudar. Vamos nos conectar?'),
-('Novo cargo', 2, 'Insight de primeiros 90 dias', '1–2 dias após aceitar', 'Entregar valor',
- 'Nos primeiros 90 dias, separar sintoma de causa evita atacar processo quando o problema é clareza de papel, liderança ou decisão. É uma leitura que reduz bastante ruído.'),
-('Novo cargo', 3, 'Ponte para prioridade', '3–4 dias depois', 'Diagnosticar prioridade',
+('Novo cargo', 1, 'Abrir pelo novo momento', 'Dia 1', 'Reconhecer a mudança',
+ 'Oi, [Nome]. Vi [Sinal]. Um novo papel sempre traz decisões sobre o que preservar e o que reorganizar. Vamos nos conectar?'),
+('Novo cargo', 2, 'Oferecer uma lente inicial', '1–2 dias após a conexão', 'Entregar um insight curto',
+ 'Nos primeiros meses, separar sintoma de causa evita criar processo para resolver um problema de papel, liderança ou decisão. Essa leitura costuma reduzir bastante o ruído.'),
+('Novo cargo', 3, 'Checar a prioridade', '3–4 dias depois', 'Descobrir o contexto real',
  'Qual tema de pessoas mais pede sua atenção agora: estrutura, liderança, cultura ou performance?'),
-('Novo cargo', 4, 'Convite claro', '3–4 dias depois', 'Agendar conversa',
+('Novo cargo', 4, 'Convidar para organizar a leitura', '3–4 dias depois', 'Agendar 20 minutos',
  'Se ajudar, podemos organizar essa leitura em 20 minutos. Tenho [Horário 1] ou [Horário 2].'),
 
-('Postou sobre a dor', 1, 'Convite pelo ponto publicado', 'Dia 1', 'Reconhecer o contexto real',
- 'Oi, [Nome]. Li seu ponto sobre [Sinal específico]. A parte sobre [Detalhe verificável] me chamou atenção porque aparece muito em empresas em crescimento. Vamos nos conectar?'),
-('Postou sobre a dor', 2, 'Insight complementar', '1–2 dias após aceitar', 'Agregar valor',
- 'Uma camada que complementa seu ponto: quando a dor se repete, normalmente existe uma decisão, papel ou rotina de liderança ainda pouco clara por trás dela.'),
-('Postou sobre a dor', 3, 'Pergunta aberta', '3–4 dias depois', 'Diagnosticar prioridade',
- 'Na [Empresa], esse tema já virou prioridade prática ou ainda está sendo observado?'),
-('Postou sobre a dor', 4, 'Convite claro', '3–4 dias depois', 'Agendar conversa',
- 'Faz sentido trocarmos 20 minutos sobre isso? Tenho [Horário 1] ou [Horário 2].'),
+('Postou sobre a dor', 1, 'Abrir pelo ponto publicado', 'Dia 1', 'Reconhecer o contexto real',
+ 'Oi, [Nome]. Li o que você publicou sobre [Sinal]. O ponto me chamou atenção porque também aparece nas empresas que acompanho. Vamos nos conectar?'),
+('Postou sobre a dor', 2, 'Somar uma camada', '1–2 dias após a conexão', 'Entregar um insight curto',
+ 'Uma camada que costuma ficar escondida: quando a mesma dor se repete, quase sempre existe uma decisão, um papel ou uma rotina de liderança pouco clara por trás.'),
+('Postou sobre a dor', 3, 'Checar se virou prioridade', '3–4 dias depois', 'Entender o contexto real',
+ 'Na [Empresa], esse tema já virou uma prioridade prática ou ainda está sendo observado?'),
+('Postou sobre a dor', 4, 'Convidar para aprofundar', '3–4 dias depois', 'Agendar 20 minutos',
+ 'Se fizer sentido aprofundar, topa uma conversa de 20 minutos? Tenho [Horário 1] ou [Horário 2].'),
 
-('Indicação', 1, 'Convite por indicação', 'Dia 1', 'Usar a confiança existente',
- 'Oi, [Nome]. [Pessoa que indicou] sugeriu que eu falasse com você sobre o momento da [Empresa]. Atuo na conexão entre estratégia, liderança e gestão de pessoas. Vamos nos conectar?'),
-('Indicação', 2, 'Contexto útil', '1–2 dias após aceitar', 'Abrir conversa',
+('Indicação', 1, 'Abrir pela indicação', 'Dia 1', 'Usar a confiança existente',
+ 'Oi, [Nome]. [Sinal]. Por isso quis conhecer melhor o momento da [Empresa]. Vamos nos conectar?'),
+('Indicação', 2, 'Evitar suposições', '1–2 dias após a conexão', 'Abrir conversa com contexto',
  'Para eu não partir de uma suposição: qual tema de pessoas ou liderança mais ocupa espaço hoje na [Empresa]?'),
-('Indicação', 3, 'Ponte para diagnóstico', '3–4 dias depois', 'Entender prioridade',
- 'Pelo que você trouxe, vale separar o que é urgência do que é estrutural. É exatamente essa leitura que fazemos no Mapa de People.'),
-('Indicação', 4, 'Convite claro', '3–4 dias depois', 'Agendar conversa',
- 'Podemos olhar isso juntos por 20 minutos. Tenho [Horário 1] ou [Horário 2].');
+('Indicação', 3, 'Separar urgência de estrutura', '3–4 dias depois', 'Ajudar a organizar a prioridade',
+ 'Quando esse tema aparece, o que pesa mais hoje: uma urgência específica ou algo estrutural que vem se repetindo?'),
+('Indicação', 4, 'Convidar para uma leitura', '3–4 dias depois', 'Agendar 20 minutos',
+ 'Podemos organizar essa leitura em 20 minutos. Tenho [Horário 1] ou [Horário 2].')
+ON CONFLICT (sinal, toque) DO UPDATE SET
+  titulo = EXCLUDED.titulo,
+  quando_enviar = EXCLUDED.quando_enviar,
+  objetivo = EXCLUDED.objetivo,
+  corpo = EXCLUDED.corpo,
+  ativo = true,
+  atualizado_em = now();
