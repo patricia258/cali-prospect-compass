@@ -8,14 +8,28 @@ export type Visao = Tables<"visoes_salvas">;
 export type EstrategiaMensagem = Tables<"estrategias_mensagem">;
 export type ImportacaoLeads = Tables<"importacoes_leads">;
 
+const LEADS_POR_PAGINA = 1000;
+
 export async function fetchLeads(): Promise<Lead[]> {
-  const { data, error } = await supabase
-    .from("leads")
-    .select("*")
-    .is("excluido_em", null)
-    .order("atualizado_em", { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+  const todos: Lead[] = [];
+
+  for (let inicio = 0; ; inicio += LEADS_POR_PAGINA) {
+    const { data, error } = await supabase
+      .from("leads")
+      .select("*")
+      .is("excluido_em", null)
+      .order("atualizado_em", { ascending: false })
+      .order("id", { ascending: true })
+      .range(inicio, inicio + LEADS_POR_PAGINA - 1);
+
+    if (error) throw error;
+
+    const pagina = data ?? [];
+    todos.push(...pagina);
+    if (pagina.length < LEADS_POR_PAGINA) break;
+  }
+
+  return todos;
 }
 
 export async function fetchEventos(leadId: string): Promise<LeadEvento[]> {
@@ -92,13 +106,25 @@ export async function excluirLead(id: string) {
 }
 
 export async function fetchLeadsExcluidos(): Promise<Lead[]> {
-  const { data, error } = await supabase
-    .from("leads")
-    .select("*")
-    .not("excluido_em", "is", null)
-    .order("excluido_em", { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+  const todos: Lead[] = [];
+
+  for (let inicio = 0; ; inicio += LEADS_POR_PAGINA) {
+    const { data, error } = await supabase
+      .from("leads")
+      .select("*")
+      .not("excluido_em", "is", null)
+      .order("excluido_em", { ascending: false })
+      .order("id", { ascending: true })
+      .range(inicio, inicio + LEADS_POR_PAGINA - 1);
+
+    if (error) throw error;
+
+    const pagina = data ?? [];
+    todos.push(...pagina);
+    if (pagina.length < LEADS_POR_PAGINA) break;
+  }
+
+  return todos;
 }
 
 export async function restaurarLead(id: string) {
