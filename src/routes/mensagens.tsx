@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CADENCIA, MENSAGEM_ROTEAMENTO, SINAIS_COMPRA } from "@/lib/cali";
+import { CADENCIA, MENSAGEM_PONTE_MAPA, MENSAGEM_ROTEAMENTO, SINAIS_COMPRA } from "@/lib/cali";
 import { fetchEstrategias, salvarEstrategia, type EstrategiaMensagem } from "@/lib/db";
 
 export const Route = createFileRoute("/mensagens")({
@@ -69,7 +69,7 @@ function Mensagens() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {SINAIS_COMPRA.filter((item) => item !== "Sem sinal").map((item) => (
+                {SINAIS_COMPRA.map((item) => (
                   <SelectItem key={item} value={item}>
                     {item}
                   </SelectItem>
@@ -111,6 +111,25 @@ function Mensagens() {
             }}
           >
             Copiar roteiro
+          </Button>
+        </section>
+
+        <section className="rounded-md border border-dourado/40 bg-dourado/10 p-5">
+          <p className="label-eyebrow">Depois que houver resposta</p>
+          <h2 className="mt-1 text-2xl text-primary">Ponte para o Mapa de People</h2>
+          <div className="mt-4 whitespace-pre-wrap rounded-md border bg-card p-4 text-sm leading-relaxed">
+            {MENSAGEM_PONTE_MAPA}
+          </div>
+          <Button
+            className="mt-4"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              navigator.clipboard.writeText(MENSAGEM_PONTE_MAPA);
+              toast.success("Ponte para o Mapa copiada.");
+            }}
+          >
+            Copiar mensagem
           </Button>
         </section>
 
