@@ -25,6 +25,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import {
   ADERENCIAS,
   CADENCIA_STATUS,
+  MENSAGEM_ROTEAMENTO,
   ORIGENS,
   PAPEIS_CONTATO,
   PRIORIDADES,
@@ -34,6 +35,7 @@ import {
   WHATSAPP_OPCOES,
   formatData,
   formatDataHora,
+  pendenciasAbordagem,
   preencherModelo,
   prontoParaAbordagem,
   proximoIntervaloCadencia,
@@ -141,8 +143,8 @@ export function LeadDrawer({
 
   const estrategiasDoSinal = useMemo(() => {
     const sinal = draft?.sinal_compra || "Sem sinal";
-    const especificas = estrategias.filter((m) => m.sinal === sinal);
-    return especificas.length ? especificas : estrategias.filter((m) => m.sinal === "Sem sinal");
+    if (sinal === "Sem sinal") return [];
+    return estrategias.filter((m) => m.sinal === sinal);
   }, [estrategias, draft?.sinal_compra]);
 
   if (!draft) return null;
@@ -152,6 +154,7 @@ export function LeadDrawer({
   const temAcaoRapida =
     draft.website || draft.google_maps || draft.linkedin_decisor || wa || draft.telefone;
   const pronto = prontoParaAbordagem(draft);
+  const pendencias = pendenciasAbordagem(draft);
 
   function statusChange(novo: string) {
     const patch: Partial<Lead> = { status: novo };
@@ -181,7 +184,11 @@ export function LeadDrawer({
   }
 
   async function copiar(corpo: string, estrategia?: EstrategiaMensagem) {
-    const texto = preencherModelo(corpo, draft!.empresa, draft!.nome_decisor);
+    const texto = preencherModelo(corpo, {
+      empresa: draft!.empresa,
+      nome: draft!.nome_decisor,
+      sinal: draft!.sinal_detalhe,
+    });
     await navigator.clipboard.writeText(texto);
     await registrarEvento({
       lead_id: draft!.id,
@@ -195,6 +202,10 @@ export function LeadDrawer({
   }
 
   async function marcarToqueEnviado(estrategia: EstrategiaMensagem) {
+    if (!pronto) {
+      toast.error("Complete a pessoa, o sinal e o ângulo antes de iniciar a cadência.");
+      return;
+    }
     try {
       const ultimo = estrategia.toque >= 4;
       const patch: Partial<Lead> = {
@@ -481,6 +492,15 @@ export function LeadDrawer({
                 />
               </div>
               <div className="space-y-1.5">
+                <Label>Fonte do sinal</Label>
+                <Input
+                  type="url"
+                  value={draft.sinal_fonte_url ?? ""}
+                  placeholder="Link do post, vaga, notícia ou página"
+                  onChange={(e) => set({ sinal_fonte_url: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label>Dor provável</Label>
                 <Textarea
                   rows={3}
@@ -603,55 +623,103 @@ export function LeadDrawer({
           </TabsContent>
 
           <TabsContent value="mensagens" className="mt-6 space-y-4">
-            <div className="rounded-md border bg-secondary/50 p-4 text-sm">
+            <div
+              className={
+                pronto
+                  ? "rounded-md border border-dourado/40 bg-dourado/10 p-4 text-sm"
+                  : "rounded-md border bg-secondary/50 p-4 text-sm"
+              }
+            >
               <p className="font-medium text-primary">
-                {draft.sinal_compra || "Sem sinal"} · toque atual {draft.cadencia_toque}/4
+                {pronto
+                  ? `${draft.sinal_compra} · toque atual ${draft.cadencia_toque}/4`
+                  : "Enriquecer antes de abordar"}
               </p>
-              <p className="mt-1 text-muted-foreground">
-                Copie, revise e envie manualmente. Quando houver resposta, mude para “Conversa
-                aberta”: a cadência será pausada imediatamente.
-              </p>
-            </div>
-            {estrategiasDoSinal.map((m) => {
-              const proximoToque = draft.cadencia_toque < 4 ? draft.cadencia_toque + 1 : null;
-              const sugerido = m.toque === proximoToque;
-              return (
-                <article
-                  key={m.id}
-                  className={
-                    sugerido
-                      ? "rounded-md border border-dourado bg-dourado/5 p-4"
-                      : "rounded-md border bg-card p-4"
-                  }
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="label-eyebrow">
-                        Toque {m.toque} · {m.quando_enviar}
+              {pronto ? (
+                <p className="mt-1 text-muted-foreground">
+                  Copie, revise e envie manualmente. Quando houver resposta, mude para “Conversa
+                  aberta”: a cadência será pausada imediatamente.
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 text-muted-foreground">
+                    Não use uma dor presumida como personalização. Complete: {pendencias.join(", ")}
+                    .
+                  </p>
+                  {draft.telefone ? (
+                    <div className="mt-4 rounded-md border bg-card p-3">
+                      <p className="label-eyebrow">Roteamento · não é abordagem comercial</p>
+                      <p className="mt-2 leading-relaxed">
+                        {preencherModelo(MENSAGEM_ROTEAMENTO, {
+                          empresa: draft.empresa,
+                          nome: draft.nome_decisor,
+                          sinal: draft.sinal_detalhe,
+                        })}
                       </p>
-                      <h3 className="mt-1 text-base text-primary">{m.titulo}</h3>
+                      <Button
+                        className="mt-3"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copiar(MENSAGEM_ROTEAMENTO)}
+                      >
+                        Copiar para localizar o decisor
+                      </Button>
                     </div>
-                    {sugerido ? (
-                      <span className="rounded-full bg-dourado/15 px-2 py-1 text-xs text-primary">
-                        Próximo sugerido
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">Objetivo: {m.objetivo}</p>
-                  <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                    {preencherModelo(m.corpo, draft.empresa, draft.nome_decisor)}
-                  </pre>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => copiar(m.corpo, m)}>
-                      Copiar para revisar
-                    </Button>
-                    <Button size="sm" disabled={!sugerido} onClick={() => marcarToqueEnviado(m)}>
-                      Marcar como enviado
-                    </Button>
-                  </div>
-                </article>
-              );
-            })}
+                  ) : null}
+                </>
+              )}
+            </div>
+            {pronto && !estrategiasDoSinal.length ? (
+              <p className="rounded-md border bg-card p-4 text-sm text-muted-foreground">
+                Ainda não há uma cadência cadastrada para este sinal. Não use um modelo genérico:
+                registre a mensagem a partir do fato observado.
+              </p>
+            ) : null}
+            {pronto &&
+              estrategiasDoSinal.map((m) => {
+                const proximoToque = draft.cadencia_toque < 4 ? draft.cadencia_toque + 1 : null;
+                const sugerido = m.toque === proximoToque;
+                return (
+                  <article
+                    key={m.id}
+                    className={
+                      sugerido
+                        ? "rounded-md border border-dourado bg-dourado/5 p-4"
+                        : "rounded-md border bg-card p-4"
+                    }
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="label-eyebrow">
+                          Toque {m.toque} · {m.quando_enviar}
+                        </p>
+                        <h3 className="mt-1 text-base text-primary">{m.titulo}</h3>
+                      </div>
+                      {sugerido ? (
+                        <span className="rounded-full bg-dourado/15 px-2 py-1 text-xs text-primary">
+                          Próximo sugerido
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">Objetivo: {m.objetivo}</p>
+                    <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                      {preencherModelo(m.corpo, {
+                        empresa: draft.empresa,
+                        nome: draft.nome_decisor,
+                        sinal: draft.sinal_detalhe,
+                      })}
+                    </pre>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => copiar(m.corpo, m)}>
+                        Copiar para revisar
+                      </Button>
+                      <Button size="sm" disabled={!sugerido} onClick={() => marcarToqueEnviado(m)}>
+                        Marcar como enviado
+                      </Button>
+                    </div>
+                  </article>
+                );
+              })}
           </TabsContent>
 
           <TabsContent value="historico" className="mt-6">
