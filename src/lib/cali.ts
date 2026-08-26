@@ -75,7 +75,8 @@ export const SINAIS_COMPRA = [
   "Novo cargo",
   "Postou sobre a dor",
   "Indicação",
-  "Sem sinal",
+  "Operação técnica",
+  "Sem sinal forte",
 ] as const;
 export const SINAIS_QUENTES = new Set(["Engajou em conteúdo", "Visitou perfil", "Indicação"]);
 export const CADENCIA_STATUS = [
@@ -90,15 +91,18 @@ export const CADENCIA = [
   {
     toque: 2,
     nome: "Insight útil",
-    quando: "1–2 dias após a conexão",
+    quando: "Dia 3–4",
     objetivo: "Abrir conversa",
   },
-  { toque: 3, nome: "Pergunta diagnóstica", quando: "3–4 dias depois", objetivo: "Diagnosticar" },
-  { toque: 4, nome: "Convite claro", quando: "3–4 dias depois", objetivo: "Agendar 20 minutos" },
+  { toque: 3, nome: "Pergunta diagnóstica", quando: "Dia 7", objetivo: "Diagnosticar" },
+  { toque: 4, nome: "Convite claro", quando: "Dia 10–14", objetivo: "Agendar 20 minutos" },
 ] as const;
 
 export const MENSAGEM_ROTEAMENTO =
   "Oi! Tudo bem? Sou Patrícia Lima. Você consegue me dizer quem cuida das decisões sobre estrutura do time e desenvolvimento das lideranças na [Empresa]? Obrigada.";
+
+export const MENSAGEM_PONTE_MAPA =
+  "Entendi. É justamente para trazer clareza sobre esse tipo de situação que criamos o Mapa de People.\n\nEle identifica o que já funciona, os riscos para o crescimento e as prioridades mais adequadas ao momento da empresa — sem recomendar uma estrutura maior do que vocês precisam.";
 
 export const FUNIL = [
   "Abordagem enviada",
@@ -279,9 +283,15 @@ export function pendenciasAbordagem(lead: {
   if (!lead.empresa?.trim()) pendencias.push("empresa");
   if (!lead.nome_decisor?.trim()) pendencias.push("nome do decisor");
   if (!temCanalContato(lead)) pendencias.push("canal de contato");
-  if (!lead.sinal_compra || lead.sinal_compra === "Sem sinal") pendencias.push("sinal real");
-  if (!lead.sinal_detalhe?.trim()) pendencias.push("detalhe verificável do sinal");
-  if (!lead.angulo_abordagem?.trim()) pendencias.push("ângulo de abordagem");
+  if (!lead.sinal_compra) pendencias.push("contexto da abordagem");
+  if (lead.sinal_compra === "Sem sinal forte") {
+    if (!lead.angulo_abordagem?.trim()) pendencias.push("ângulo de abordagem");
+  } else if (lead.sinal_compra && !lead.sinal_detalhe?.trim()) {
+    pendencias.push("detalhe verificável do sinal");
+  }
+  if (!lead.angulo_abordagem?.trim() && !lead.sinal_detalhe?.trim()) {
+    pendencias.push("ângulo ou contexto registrado");
+  }
   return pendencias;
 }
 
