@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Json, Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { proximosDiasUteis } from "@/lib/cali";
 
 export type Lead = Tables<"leads">;
 export type LeadEvento = Tables<"lead_eventos">;
@@ -47,25 +48,141 @@ export async function registrarEvento(evento: TablesInsert<"lead_eventos">) {
   if (error) throw error;
 }
 
+/**
+ * Define o próximo passo e o lembrete padrão de cada etapa do pipeline.
+ * A pessoa ainda pode editar a sugestão depois; a automação só entra quando o status muda.
+ */
+export function automacaoPorStatus(lead: Lead, novoStatus: string, agora = new Date()) {
+  const timestamp = agora.toISOString();
+  const patch: Partial<Lead> = {
+    ultima_interacao: timestamp,
+  };
+
+  switch (novoStatus) {
+    case "Novo lead":
+      return {
+        ...patch,
+        cadencia_status: "Não iniciada",
+        proximo_followup: proximosDiasUteis(1),
+        proximo_passo: "Analisar e enriquecer o lead",
+      };
+    case "Enriquecendo dados":
+      return {
+        ...patch,
+        cadencia_status: "Não iniciada",
+        proximo_followup: proximosDiasUteis(2),
+        proximo_passo: "Completar decisor, canais e contexto",
+      };
+    case "Qualificado":
+      return {
+        ...patch,
+        cadencia_status: "Não iniciada",
+        proximo_followup: proximosDiasUteis(1),
+        proximo_passo: "Identificar um sinal ou definir o ângulo de abordagem",
+      };
+    case "Sinal identificado":
+      return {
+        ...patch,
+        cadencia_status: "Não iniciada",
+        proximo_followup: proximosDiasUteis(1),
+        proximo_passo: "Preparar e enviar a primeira abordagem",
+      };
+    case "Abordagem enviada":
+      return {
+        ...patch,
+        primeiro_contato_em: lead.primeiro_contato_em ?? timestamp,
+        cadencia_status: "Ativa",
+        cadencia_toque: Math.max(1, lead.cadencia_toque || 0),
+        proximo_followup: proximosDiasUteis(2),
+        proximo_passo: "Enviar follow-up com um insight útil",
+      };
+    case "Em cadência":
+      return {
+        ...patch,
+        cadencia_status: "Ativa",
+        proximo_followup: proximosDiasUteis(3),
+        proximo_passo: "Reativar o contato com o próximo toque",
+      };
+    case "Conversa aberta":
+      return {
+        ...patch,
+        respondeu_em: lead.respondeu_em ?? timestamp,
+        cadencia_status: "Pausada por resposta",
+        proximo_followup: proximosDiasUteis(2),
+        proximo_passo: "Retomar a conversa e combinar o próximo passo",
+      };
+    case "Diagnóstico agendado":
+      return {
+        ...patch,
+        diagnostico_agendado_em: timestamp,
+        cadencia_status: "Pausada por resposta",
+        proximo_followup: proximosDiasUteis(1),
+        proximo_passo: "Confirmar o diagnóstico e preparar a conversa",
+      };
+    case "Mapa de People enviado/realizado":
+      return {
+        ...patch,
+        mapa_people_em: timestamp,
+        cadencia_status: "Pausada por resposta",
+        proximo_followup: proximosDiasUteis(3),
+        proximo_passo: "Solicitar retorno sobre o Mapa de People",
+      };
+    case "Proposta enviada":
+      return {
+        ...patch,
+        proposta_enviada_em: timestamp,
+        cadencia_status: "Pausada por resposta",
+        proximo_followup: proximosDiasUteis(3),
+        proximo_passo: "Fazer follow-up da proposta",
+      };
+    case "Negociação":
+      return {
+        ...patch,
+        cadencia_status: "Pausada por resposta",
+        proximo_followup: proximosDiasUteis(2),
+        proximo_passo: "Retomar a negociação e alinhar pendências",
+      };
+    case "Cliente":
+      return {
+        ...patch,
+        cadencia_status: "Concluída",
+        proximo_followup: proximosDiasUteis(5),
+        proximo_passo: "Realizar o próximo passo do onboarding",
+      };
+    case "Sem fit / perdido":
+      return {
+        ...patch,
+        cadencia_status: "Concluída",
+        proximo_followup: null,
+        proximo_passo: "Encerrado",
+      };
+    default:
+      return patch;
+  }
+}
+
 export async function atualizarLead(lead: Lead, patch: Partial<Lead>) {
+  const novoStatus = patch.status;
+  const statusMudou = Boolean(novoStatus && novoStatus !== lead.status);
+  const patchFinal = statusMudou ? { ...automacaoPorStatus(lead, novoStatus!), ...patch } : patch;
   const { data, error } = await supabase
     .from("leads")
-    .update(patch)
+    .update(patchFinal)
     .eq("id", lead.id)
     .select()
     .single();
   if (error) throw error;
 
-  if (patch.status && patch.status !== lead.status) {
+  if (statusMudou && novoStatus) {
     await registrarEvento({
       lead_id: lead.id,
       tipo: "status_alterado",
-      descricao: `Status alterado de ${lead.status} para ${patch.status}.`,
+      descricao: `Status alterado de ${lead.status} para ${novoStatus}. Próximo passo: ${patchFinal.proximo_passo ?? "não definido"}.`,
       status_anterior: lead.status,
-      status_novo: patch.status,
+      status_novo: novoStatus,
     });
   }
-  if (patch.notas !== undefined && patch.notas !== lead.notas) {
+  if (patchFinal.notas !== undefined && patchFinal.notas !== lead.notas) {
     await registrarEvento({
       lead_id: lead.id,
       tipo: "nota_adicionada",
