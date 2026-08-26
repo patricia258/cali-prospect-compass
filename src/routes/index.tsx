@@ -45,11 +45,16 @@ function Painel() {
 
   const novosSemana = leads.filter((l) => l.criado_em >= seteDiasAtras);
   const comCanal = leads.filter(temCanalContato);
-  const semSite = leads.filter((l) => !l.website);
   const semTelefone = leads.filter((l) => !l.telefone);
   const semEmail = leads.filter((l) => !l.email);
   const semWhatsapp = leads.filter((l) => l.whatsapp !== "Sim");
+  const semDecisor = leads.filter((l) => !l.nome_decisor);
+  const semLinkedinDecisor = leads.filter((l) => !l.linkedin_decisor);
+  const semSinalVerificado = leads.filter(
+    (l) => !l.sinal_compra || l.sinal_compra === "Sem sinal" || !l.sinal_detalhe,
+  );
   const prontos = leads.filter(prontoParaAbordagem);
+  const filaEnriquecimento = leads.filter((l) => !prontoParaAbordagem(l) && !l.primeiro_contato_em);
   const sinaisQuentes = leads.filter((l) => SINAIS_QUENTES.has(l.sinal_compra || ""));
   const abordados = leads.filter((l) => l.primeiro_contato_em);
   const responderam = leads.filter((l) => l.respondeu_em);
@@ -94,6 +99,11 @@ function Painel() {
           <section className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-6">
             <Metric valor={novosSemana.length} label="Novos na semana" />
             <Metric valor={comCanal.length} label="Com canal de contato" />
+            <Metric
+              valor={filaEnriquecimento.length}
+              label="Fila de enriquecimento"
+              hint="Ainda não devem receber abordagem"
+            />
             <Metric valor={prontos.length} label="Prontos para abordar" />
             <Metric valor={sinaisQuentes.length} label="Com sinal quente" />
             <Metric valor={abordados.length} label="Abordagens enviadas" />
@@ -157,8 +167,10 @@ function Painel() {
               <p className="mt-1 text-xs text-muted-foreground">
                 Lacunas que impedem ou limitam a abordagem.
               </p>
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <MiniNumero valor={semSite.length} label="Sem site" />
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <MiniNumero valor={semDecisor.length} label="Sem decisor" />
+                <MiniNumero valor={semLinkedinDecisor.length} label="Sem LinkedIn decisor" />
+                <MiniNumero valor={semSinalVerificado.length} label="Sem sinal verificado" />
                 <MiniNumero valor={semTelefone.length} label="Sem telefone" />
                 <MiniNumero valor={semEmail.length} label="Sem e-mail" />
                 <MiniNumero valor={semWhatsapp.length} label="Sem WhatsApp" />
@@ -168,9 +180,9 @@ function Painel() {
               <p className="label-eyebrow">Ritual diário</p>
               <h2 className="mt-1 text-xl text-primary">30–45 minutos</h2>
               <ol className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li>1. Coletar e qualificar sinais · 15 min</li>
-                <li>2. Revisar e enviar até 10 convites · 15 min</li>
-                <li>3. Responder e executar follow-ups · 15 min</li>
+                <li>1. Localizar até 10 decisores · 15 min</li>
+                <li>2. Validar até 5 sinais reais · 15 min</li>
+                <li>3. Enviar até 10 abordagens e follow-ups · 15 min</li>
               </ol>
             </div>
           </section>
@@ -183,6 +195,12 @@ function Painel() {
           </section>
 
           <section className="grid gap-6 lg:grid-cols-2">
+            <ListaCurta
+              titulo="Próximos para enriquecer"
+              vazio="Todos os leads estão prontos ou já foram abordados."
+              leads={filaEnriquecimento.slice(0, 8)}
+              detalhe={(l) => (!l.nome_decisor ? "Localizar decisor" : "Validar sinal e ângulo")}
+            />
             <ListaCurta
               titulo="Retornos vencidos"
               vazio="Nenhum follow-up atrasado."
