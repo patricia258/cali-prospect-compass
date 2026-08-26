@@ -1,83 +1,114 @@
+import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Shell } from "@/components/Shell";
 import { StatusBadge } from "@/components/StatusBadge";
+import { LeadDrawer } from "@/components/LeadDrawer";
 import { Button } from "@/components/ui/button";
 import { fetchLeads, type Lead } from "@/lib/db";
 import {
   FUNIL,
   SINAIS_QUENTES,
+  diasDesde,
   formatData,
   prontoParaAbordagem,
   statusColor,
   temCanalContato,
 } from "@/lib/cali";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Painel de estratégia · Cali Prospecção" },
+      { title: "Cockpit de prospecção · Cali" },
       {
         name: "description",
-        content: "Sinais, cadência, respostas e oportunidades da prospecção ativa da Cali.",
+        content:
+          "Fila de trabalho diária, pipeline, follow-ups vencidos e conversão por sinal da prospecção da Cali.",
       },
+      { property: "og:title", content: "Cockpit de prospecção · Cali" },
+      {
+        property: "og:description",
+        content: "Fila de trabalho, pipeline e conversão da prospecção ativa da Cali.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Painel,
 });
 
-function Metric({ valor, label, hint }: { valor: number | string; label: string; hint?: string }) {
-  return (
-    <div className="rounded-md border bg-card p-5 shadow-card">
-      <p className="font-display text-3xl leading-none text-primary">{valor}</p>
-      <p className="label-eyebrow mt-2">{label}</p>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
-    </div>
-  );
-}
+type FilaId =
+  | "vencidos"
+  | "hoje"
+  | "quentes"
+  | "prontos"
+  | "enriquecer"
+  | "conversas"
+  | "esfriando";
 
 function Painel() {
   const { data: leads = [], isLoading } = useQuery({ queryKey: ["leads"], queryFn: fetchLeads });
+  const [fila, setFila] = useState<FilaId>("vencidos");
+  const [aberto, setAberto] = useState<Lead | null>(null);
 
   const hoje = new Date().toISOString().slice(0, 10);
-  const seteDiasAtras = new Date(Date.now() - 7 * 86400000).toISOString();
-  const seteDiasFrente = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const emSete = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
-  const novosSemana = leads.filter((l) => l.criado_em >= seteDiasAtras);
-  const comCanal = leads.filter(temCanalContato);
-  const semTelefone = leads.filter((l) => !l.telefone);
-  const semEmail = leads.filter((l) => !l.email);
-  const semWhatsapp = leads.filter((l) => l.whatsapp !== "Sim");
-  const semDecisor = leads.filter((l) => !l.nome_decisor);
-  const semLinkedinDecisor = leads.filter((l) => !l.linkedin_decisor);
-  const semSinalVerificado = leads.filter(
-    (l) =>
-      !l.sinal_compra ||
-      (l.sinal_compra !== "Sem sinal forte" && !l.sinal_detalhe) ||
-      (l.sinal_compra === "Sem sinal forte" && !l.angulo_abordagem),
-  );
-  const prontos = leads.filter(prontoParaAbordagem);
-  const filaEnriquecimento = leads.filter((l) => !prontoParaAbordagem(l) && !l.primeiro_contato_em);
-  const sinaisQuentes = leads.filter((l) => SINAIS_QUENTES.has(l.sinal_compra || ""));
-  const abordados = leads.filter((l) => l.primeiro_contato_em);
-  const responderam = leads.filter((l) => l.respondeu_em);
-  const taxaResposta = abordados.length
-    ? `${Math.round((responderam.length / abordados.length) * 100)}%`
-    : "0%";
-  const conversas = leads.filter((l) => l.status === "Conversa aberta");
-  const reunioes = leads.filter((l) => l.status === "Diagnóstico agendado");
-  const mapas = leads.filter(
-    (l) => l.mapa_people_em || l.status === "Mapa de People enviado/realizado",
-  );
-  const propostas = leads.filter((l) => l.proposta_enviada_em || l.status === "Proposta enviada");
-  const clientes = leads.filter((l) => l.status === "Cliente");
-  const followupVencido = leads.filter(
-    (l) => l.proximo_followup && l.proximo_followup < hoje && l.status !== "Cliente",
-  );
-  const followupHoje = leads.filter((l) => l.proximo_followup === hoje);
-  const followupSeteDias = leads.filter(
-    (l) => l.proximo_followup && l.proximo_followup >= hoje && l.proximo_followup <= seteDiasFrente,
-  );
+  const g = useMemo(() => {
+    const abordados = leads.filter((l) => l.primeiro_contato_em);
+    const responderam = leads.filter((l) => l.respondeu_em);
+    return {
+      vencidos: leads.filter(
+        (l) => l.proximo_followup && l.proximo_followup < hoje && l.status !== "Cliente",
+      ),
+      hoje: leads.filter((l) => l.proximo_followup === hoje),
+      semana: leads.filter(
+        (l) => l.proximo_followup && l.proximo_followup >= hoje && l.proximo_followup <= emSete,
+      ),
+      quentes: leads.filter(
+        (l) => SINAIS_QUENTES.has(l.sinal_compra || "") && !l.primeiro_contato_em,
+      ),
+      prontos: leads.filter((l) => prontoParaAbordagem(l) && !l.primeiro_contato_em),
+      enriquecer: leads.filter((l) => !prontoParaAbordagem(l) && !l.primeiro_contato_em),
+      conversas: leads.filter(
+        (l) => l.status === "Conversa aberta" || l.status === "Diagnóstico agendado",
+      ),
+      esfriando: leads.filter(
+        (l) =>
+          l.primeiro_contato_em &&
+          !l.respondeu_em &&
+          diasDesde(l.atualizado_em) >= 10 &&
+          l.status !== "Cliente" &&
+          l.status !== "Sem fit / perdido",
+      ),
+      abordados,
+      responderam,
+      comCanal: leads.filter(temCanalContato),
+      clientes: leads.filter((l) => l.status === "Cliente"),
+      propostas: leads.filter((l) => l.status === "Proposta enviada" || l.proposta_enviada_em),
+    };
+  }, [leads, hoje, emSete]);
+
+  const taxa = g.abordados.length
+    ? Math.round((g.responderam.length / g.abordados.length) * 100)
+    : 0;
+
+  const FILAS: { id: FilaId; label: string; itens: Lead[]; tom: "urgente" | "quente" | "neutro" }[] =
+    [
+      { id: "vencidos", label: "Follow-up vencido", itens: g.vencidos, tom: "urgente" },
+      { id: "hoje", label: "Retorno hoje", itens: g.hoje, tom: "urgente" },
+      { id: "quentes", label: "Sinal quente", itens: g.quentes, tom: "quente" },
+      { id: "prontos", label: "Pronto p/ abordar", itens: g.prontos, tom: "quente" },
+      { id: "conversas", label: "Conversas ativas", itens: g.conversas, tom: "neutro" },
+      { id: "esfriando", label: "Esfriando", itens: g.esfriando, tom: "urgente" },
+      { id: "enriquecer", label: "Enriquecer", itens: g.enriquecer, tom: "neutro" },
+    ];
+
+  const ativa = FILAS.find((f) => f.id === fila) ?? FILAS[0];
+  const linhas = [...ativa.itens]
+    .sort((a, b) => (a.proximo_followup || "9999").localeCompare(b.proximo_followup || "9999"))
+    .slice(0, 25);
 
   const funil = FUNIL.map((etapa) => ({
     etapa,
@@ -87,108 +118,172 @@ function Painel() {
 
   return (
     <Shell
-      title="Central de prospecção"
-      subtitle="ICP, sinais, abordagem, cadência e métricas em uma única rotina comercial."
+      title="Cockpit de prospecção"
+      subtitle="Fila de trabalho do dia, pipeline e conversão — clique em qualquer linha para abrir o lead."
       actions={
         <Button asChild variant="outline">
-          <Link to="/leads">Ver todos os leads</Link>
+          <Link to="/leads">Base completa</Link>
         </Button>
       }
     >
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando dados…</p>
       ) : (
-        <div className="space-y-10">
-          <section className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-6">
-            <Metric valor={novosSemana.length} label="Novos na semana" />
-            <Metric valor={comCanal.length} label="Com canal de contato" />
-            <Metric
-              valor={filaEnriquecimento.length}
-              label="Fila de enriquecimento"
-              hint="Ainda não devem receber abordagem"
-            />
-            <Metric valor={prontos.length} label="Prontos para abordar" />
-            <Metric valor={sinaisQuentes.length} label="Com sinal quente" />
-            <Metric valor={abordados.length} label="Abordagens enviadas" />
-            <Metric
-              valor={taxaResposta}
-              label="Taxa de resposta"
-              hint="Meta do playbook: acima de 20%"
-            />
-            <Metric valor={conversas.length} label="Conversas abertas" />
-            <Metric valor={reunioes.length} label="Diagnósticos agendados" />
-            <Metric valor={mapas.length} label="Mapas realizados" />
-            <Metric valor={propostas.length} label="Propostas enviadas" />
-            <Metric valor={clientes.length} label="Clientes" />
-            <Metric valor={followupVencido.length} label="Follow-ups vencidos" />
+        <div className="space-y-6">
+          {/* Barra de indicadores densa */}
+          <section className="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-md border bg-card sm:grid-cols-3 lg:grid-cols-6">
+            <Kpi valor={leads.length} label="Leads na base" />
+            <Kpi valor={g.comCanal.length} label="Com canal" />
+            <Kpi valor={g.abordados.length} label="Abordados" />
+            <Kpi valor={`${taxa}%`} label="Taxa de resposta" alerta={taxa < 20} />
+            <Kpi valor={g.propostas.length} label="Propostas" />
+            <Kpi valor={g.clientes.length} label="Clientes" />
           </section>
 
-          <section className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-            <div className="rounded-md border bg-card p-6 shadow-card">
-              <h2 className="text-xl text-primary">Pipeline comercial</h2>
-              <div className="mt-6 space-y-4">
-                {funil.map((f) => (
-                  <div key={f.etapa}>
-                    <div className="flex items-baseline justify-between text-sm">
-                      <span>{f.etapa}</span>
-                      <span className="font-display text-lg text-primary">{f.total}</span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 w-full rounded-full bg-secondary">
-                      <div
-                        className="h-1.5 rounded-full"
-                        style={{
-                          width: `${(f.total / maxFunil) * 100}%`,
-                          backgroundColor: statusColor(f.etapa),
-                        }}
-                      />
-                    </div>
-                  </div>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            {/* Fila de trabalho */}
+            <section className="overflow-hidden rounded-md border bg-card">
+              <div className="flex flex-wrap gap-1 border-b bg-secondary/40 p-1.5">
+                {FILAS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFila(f.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-[3px] px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      f.id === fila
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-background hover:text-foreground",
+                    )}
+                  >
+                    {f.label}
+                    <span
+                      className={cn(
+                        "rounded-[3px] px-1 tabular-nums",
+                        f.id === fila
+                          ? "bg-primary-foreground/20"
+                          : f.tom === "urgente" && f.itens.length > 0
+                            ? "bg-destructive/15 text-destructive"
+                            : "bg-secondary",
+                      )}
+                    >
+                      {f.itens.length}
+                    </span>
+                  </button>
                 ))}
               </div>
-            </div>
 
-            <div className="rounded-md border bg-card p-6 shadow-card">
-              <h2 className="text-xl text-primary">Agenda de follow-up</h2>
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                <MiniNumero valor={followupVencido.length} label="Vencidos" />
-                <MiniNumero valor={followupHoje.length} label="Hoje" />
-                <MiniNumero valor={followupSeteDias.length} label="7 dias" />
-              </div>
-              <ListaCurta
-                className="mt-5 border-0 p-0 shadow-none"
-                titulo="Próximos retornos"
-                vazio="Nenhum retorno programado."
-                leads={followupSeteDias.slice(0, 6)}
-                detalhe={(l) => formatData(l.proximo_followup)}
-              />
-            </div>
-          </section>
+              {linhas.length === 0 ? (
+                <p className="p-8 text-center text-sm text-muted-foreground">
+                  Nada nesta fila. Boa — siga para a próxima.
+                </p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-background/60 text-left">
+                      <th className="label-eyebrow px-4 py-2">Empresa</th>
+                      <th className="label-eyebrow hidden px-3 py-2 md:table-cell">Decisor</th>
+                      <th className="label-eyebrow hidden px-3 py-2 lg:table-cell">Sinal</th>
+                      <th className="label-eyebrow px-3 py-2">Status</th>
+                      <th className="label-eyebrow px-3 py-2 text-right">Retorno</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {linhas.map((l) => {
+                      const atrasado = Boolean(l.proximo_followup && l.proximo_followup < hoje);
+                      return (
+                        <tr
+                          key={l.id}
+                          onClick={() => setAberto(l)}
+                          className="cursor-pointer border-b last:border-0 hover:bg-secondary/50"
+                        >
+                          <td className="px-4 py-2.5">
+                            <span
+                              className="mr-2 inline-block h-3.5 w-[3px] translate-y-[2px] rounded-full"
+                              style={{ backgroundColor: statusColor(l.status) }}
+                            />
+                            <span className="font-medium">{l.empresa}</span>
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {l.cidade || ""}
+                            </span>
+                          </td>
+                          <td className="hidden px-3 py-2.5 text-muted-foreground md:table-cell">
+                            {l.nome_decisor || "—"}
+                          </td>
+                          <td className="hidden px-3 py-2.5 text-muted-foreground lg:table-cell">
+                            {l.sinal_compra || "—"}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <StatusBadge status={l.status} />
+                          </td>
+                          <td
+                            className={cn(
+                              "px-3 py-2.5 text-right tabular-nums",
+                              atrasado ? "font-semibold text-destructive" : "text-muted-foreground",
+                            )}
+                          >
+                            {formatData(l.proximo_followup)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+              {ativa.itens.length > linhas.length ? (
+                <div className="border-t px-4 py-2 text-xs text-muted-foreground">
+                  Mostrando {linhas.length} de {ativa.itens.length} — veja o restante na{" "}
+                  <Link to="/leads" className="underline">
+                    base completa
+                  </Link>
+                  .
+                </div>
+              ) : null}
+            </section>
 
-          <section className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-            <div className="rounded-md border bg-card p-6 shadow-card">
-              <h2 className="text-xl text-primary">Completude dos contatos</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Lacunas que impedem ou limitam a abordagem.
-              </p>
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <MiniNumero valor={semDecisor.length} label="Sem decisor" />
-                <MiniNumero valor={semLinkedinDecisor.length} label="Sem LinkedIn decisor" />
-                <MiniNumero valor={semSinalVerificado.length} label="Sem sinal verificado" />
-                <MiniNumero valor={semTelefone.length} label="Sem telefone" />
-                <MiniNumero valor={semEmail.length} label="Sem e-mail" />
-                <MiniNumero valor={semWhatsapp.length} label="Sem WhatsApp" />
-              </div>
-            </div>
-            <div className="rounded-md border border-dourado/40 bg-dourado/10 p-6">
-              <p className="label-eyebrow">Ritual diário</p>
-              <h2 className="mt-1 text-xl text-primary">30–45 minutos</h2>
-              <ol className="mt-4 space-y-2 text-sm text-muted-foreground">
-                <li>1. Localizar até 10 decisores · 15 min</li>
-                <li>2. Validar até 5 sinais reais · 15 min</li>
-                <li>3. Enviar até 10 abordagens e follow-ups · 15 min</li>
-              </ol>
-            </div>
-          </section>
+            {/* Pipeline */}
+            <aside className="space-y-6">
+              <section className="rounded-md border bg-card p-5">
+                <h2 className="text-base font-semibold text-primary">Pipeline</h2>
+                <div className="mt-4 space-y-3">
+                  {funil.map((f) => (
+                    <div key={f.etapa}>
+                      <div className="flex items-baseline justify-between text-xs">
+                        <span className="text-muted-foreground">{f.etapa}</span>
+                        <span className="tabular-nums font-semibold text-foreground">{f.total}</span>
+                      </div>
+                      <div className="mt-1 h-2 w-full overflow-hidden rounded-[2px] bg-secondary">
+                        <div
+                          className="h-2"
+                          style={{
+                            width: `${(f.total / maxFunil) * 100}%`,
+                            backgroundColor: statusColor(f.etapa),
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-md border bg-card p-5">
+                <h2 className="text-base font-semibold text-primary">Agenda</h2>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <Mini valor={g.vencidos.length} label="Vencidos" alerta />
+                  <Mini valor={g.hoje.length} label="Hoje" />
+                  <Mini valor={g.semana.length} label="7 dias" />
+                </div>
+                <div className="mt-4 border-t pt-3">
+                  <p className="label-eyebrow">Ritual diário · 30–45 min</p>
+                  <ol className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    <li>1. Localizar até 10 decisores</li>
+                    <li>2. Validar até 5 sinais reais</li>
+                    <li>3. Enviar até 10 abordagens e follow-ups</li>
+                  </ol>
+                </div>
+              </section>
+            </aside>
+          </div>
 
           <section className="grid gap-6 lg:grid-cols-2">
             <Conversao titulo="Conversão por sinal" leads={leads} campo="sinal_compra" />
@@ -196,37 +291,49 @@ function Painel() {
             <Conversao titulo="Conversão por segmento" leads={leads} campo="segmento" />
             <Conversao titulo="Conversão por mensagem" leads={leads} campo="modelo_usado" />
           </section>
-
-          <section className="grid gap-6 lg:grid-cols-2">
-            <ListaCurta
-              titulo="Próximos para enriquecer"
-              vazio="Todos os leads estão prontos ou já foram abordados."
-              leads={filaEnriquecimento.slice(0, 8)}
-              detalhe={(l) => (!l.nome_decisor ? "Localizar decisor" : "Validar sinal e ângulo")}
-            />
-            <ListaCurta
-              titulo="Retornos vencidos"
-              vazio="Nenhum follow-up atrasado."
-              leads={followupVencido.slice(0, 8)}
-              detalhe={(l) => `Retorno em ${formatData(l.proximo_followup)}`}
-            />
-            <ListaCurta
-              titulo="Sinais quentes ainda sem abordagem"
-              vazio="Nenhum sinal quente aguardando abordagem."
-              leads={sinaisQuentes.filter((l) => !l.primeiro_contato_em).slice(0, 8)}
-              detalhe={(l) => l.sinal_compra || "Sem sinal forte"}
-            />
-          </section>
         </div>
       )}
+
+      <LeadDrawer lead={aberto} onOpenChange={(open) => !open && setAberto(null)} />
     </Shell>
   );
 }
 
-function MiniNumero({ valor, label }: { valor: number; label: string }) {
+function Kpi({
+  valor,
+  label,
+  alerta,
+}: {
+  valor: number | string;
+  label: string;
+  alerta?: boolean;
+}) {
   return (
-    <div className="rounded-md bg-secondary/70 p-3 text-center">
-      <p className="font-display text-2xl text-primary">{valor}</p>
+    <div className="px-4 py-3">
+      <p
+        className={cn(
+          "font-display text-2xl leading-none",
+          alerta ? "text-destructive" : "text-primary",
+        )}
+      >
+        {valor}
+      </p>
+      <p className="label-eyebrow mt-1.5">{label}</p>
+    </div>
+  );
+}
+
+function Mini({ valor, label, alerta }: { valor: number; label: string; alerta?: boolean }) {
+  return (
+    <div className="rounded-[3px] bg-secondary/70 py-2">
+      <p
+        className={cn(
+          "font-display text-xl leading-none",
+          alerta && valor > 0 ? "text-destructive" : "text-primary",
+        )}
+      >
+        {valor}
+      </p>
       <p className="label-eyebrow mt-1">{label}</p>
     </div>
   );
@@ -254,69 +361,38 @@ function Conversao({
     }))
     .sort((a, b) => b.respostas - a.respostas || b.total - a.total)
     .slice(0, 8);
+  const maxTaxa = Math.max(
+    1,
+    ...linhas.map((l) => (l.total ? (l.respostas / l.total) * 100 : 0)),
+  );
 
   return (
-    <div className="rounded-md border bg-card p-6 shadow-card">
-      <h2 className="text-xl text-primary">{titulo}</h2>
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="label-eyebrow py-2">Grupo</th>
-              <th className="label-eyebrow py-2 text-right">Leads</th>
-              <th className="label-eyebrow py-2 text-right">Resposta</th>
-            </tr>
-          </thead>
-          <tbody>
-            {linhas.map((linha) => (
+    <div className="overflow-hidden rounded-md border bg-card">
+      <h2 className="border-b px-5 py-3 text-base font-semibold text-primary">{titulo}</h2>
+      <table className="w-full text-sm">
+        <tbody>
+          {linhas.map((linha) => {
+            const taxa = linha.total ? Math.round((linha.respostas / linha.total) * 100) : 0;
+            return (
               <tr key={linha.nome} className="border-b last:border-0">
-                <td className="py-2.5">{linha.nome}</td>
-                <td className="py-2.5 text-right tabular-nums text-muted-foreground">
+                <td className="px-5 py-2">{linha.nome}</td>
+                <td className="w-16 py-2 text-right tabular-nums text-muted-foreground">
                   {linha.total}
                 </td>
-                <td className="py-2.5 text-right tabular-nums">
-                  {linha.total ? Math.round((linha.respostas / linha.total) * 100) : 0}%
+                <td className="w-28 py-2 pr-3">
+                  <div className="h-1.5 w-full rounded-[2px] bg-secondary">
+                    <div
+                      className="h-1.5 rounded-[2px] bg-primary"
+                      style={{ width: `${(taxa / maxTaxa) * 100}%` }}
+                    />
+                  </div>
                 </td>
+                <td className="w-14 py-2 pr-5 text-right tabular-nums font-medium">{taxa}%</td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function ListaCurta({
-  titulo,
-  leads,
-  detalhe,
-  vazio,
-  className = "",
-}: {
-  titulo: string;
-  leads: Lead[];
-  detalhe: (l: Lead) => string;
-  vazio: string;
-  className?: string;
-}) {
-  return (
-    <div className={`rounded-md border bg-card p-6 shadow-card ${className}`}>
-      <h2 className="text-xl text-primary">{titulo}</h2>
-      {leads.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">{vazio}</p>
-      ) : (
-        <ul className="mt-4 divide-y">
-          {leads.map((l) => (
-            <li key={l.id} className="flex items-center justify-between gap-4 py-2.5">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{l.empresa}</p>
-                <p className="truncate text-xs text-muted-foreground">{detalhe(l)}</p>
-              </div>
-              <StatusBadge status={l.status} />
-            </li>
-          ))}
-        </ul>
-      )}
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
