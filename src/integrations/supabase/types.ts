@@ -94,6 +94,7 @@ export type Database = {
           sinal_compra: string | null;
           sinal_data: string | null;
           sinal_detalhe: string | null;
+          sinal_fonte_url: string | null;
           status: string;
           tags: string[];
           tamanho_time: string | null;
@@ -149,6 +150,7 @@ export type Database = {
           sinal_compra?: string | null;
           sinal_data?: string | null;
           sinal_detalhe?: string | null;
+          sinal_fonte_url?: string | null;
           status?: string;
           tags?: string[];
           tamanho_time?: string | null;
@@ -204,6 +206,7 @@ export type Database = {
           sinal_compra?: string | null;
           sinal_data?: string | null;
           sinal_detalhe?: string | null;
+          sinal_fonte_url?: string | null;
           status?: string;
           tags?: string[];
           tamanho_time?: string | null;
