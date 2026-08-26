@@ -51,7 +51,10 @@ function Painel() {
   const semDecisor = leads.filter((l) => !l.nome_decisor);
   const semLinkedinDecisor = leads.filter((l) => !l.linkedin_decisor);
   const semSinalVerificado = leads.filter(
-    (l) => !l.sinal_compra || l.sinal_compra === "Sem sinal" || !l.sinal_detalhe,
+    (l) =>
+      !l.sinal_compra ||
+      (l.sinal_compra !== "Sem sinal forte" && !l.sinal_detalhe) ||
+      (l.sinal_compra === "Sem sinal forte" && !l.angulo_abordagem),
   );
   const prontos = leads.filter(prontoParaAbordagem);
   const filaEnriquecimento = leads.filter((l) => !prontoParaAbordagem(l) && !l.primeiro_contato_em);
@@ -211,7 +214,7 @@ function Painel() {
               titulo="Sinais quentes ainda sem abordagem"
               vazio="Nenhum sinal quente aguardando abordagem."
               leads={sinaisQuentes.filter((l) => !l.primeiro_contato_em).slice(0, 8)}
-              detalhe={(l) => l.sinal_compra || "Sem sinal"}
+              detalhe={(l) => l.sinal_compra || "Sem sinal forte"}
             />
           </section>
         </div>
