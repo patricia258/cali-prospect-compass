@@ -100,6 +100,7 @@ CREATE INDEX IF NOT EXISTS idx_leads_excluido_em ON public.leads(excluido_em);
 
 -- O painel não recebe permissão de DELETE. Exclusão funcional é sempre soft delete.
 REVOKE DELETE ON public.leads FROM authenticated;
+DROP POLICY IF EXISTS "leads_authenticated_all" ON public.leads;
 DROP POLICY IF EXISTS "leads_only_patricia" ON public.leads;
 DROP POLICY IF EXISTS "leads_select_patricia" ON public.leads;
 DROP POLICY IF EXISTS "leads_insert_patricia" ON public.leads;
