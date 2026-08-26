@@ -8,7 +8,7 @@ const NAV = [
   { to: "/", label: "Painel" },
   { to: "/leads", label: "Leads" },
   { to: "/kanban", label: "Kanban" },
-  { to: "/mensagens", label: "Mensagens" },
+  { to: "/mensagens", label: "Estratégia" },
 ] as const;
 
 export function Shell({

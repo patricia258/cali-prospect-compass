@@ -1,43 +1,46 @@
 export const STATUS_LIST = [
-  "Não contatado",
-  "Mensagem enviada",
-  "Respondeu",
-  "Reunião agendada",
-  "Reunião realizada",
-  "Chamada agendada",
+  "Novo lead",
+  "Enriquecendo dados",
+  "Qualificado",
+  "Sinal identificado",
+  "Abordagem enviada",
+  "Em cadência",
+  "Conversa aberta",
+  "Diagnóstico agendado",
+  "Mapa de People enviado/realizado",
   "Proposta enviada",
+  "Negociação",
   "Cliente",
-  "Em standby",
-  "Desalinhado",
-  "Declinou",
-  "Sem interesse",
+  "Sem fit / perdido",
 ] as const;
 
 export type Status = (typeof STATUS_LIST)[number];
 
 /**
- * Cores de status agrupadas por sinal, conforme definido pela Patrícia:
- * - Não contatado / Mensagem enviada → neutro, sem cor de destaque (ainda não há sinal)
- * - Respondeu / Reunião agendada / Reunião realizada / Chamada agendada → amarelo claro (em conversa)
- * - Proposta enviada / Cliente → verde (resultado positivo)
- * - Em standby → laranja
- * - Desalinhado / Declinou / Sem interesse → vermelho (encerrado sem avanço)
+ * Cores do pipeline orientado por estratégia:
+ * - início e enriquecimento → neutros
+ * - qualificação e sinal → dourado
+ * - cadência → laranja
+ * - conversa e diagnóstico → amarelo/verde suave
+ * - proposta, negociação e cliente → verde
+ * - sem fit / perdido → vermelho
  *
  * `null` significa "sem cor de destaque" — o StatusBadge renderiza neutro nesse caso.
  */
 export const STATUS_COLORS: Record<string, string | null> = {
-  "Não contatado": null,
-  "Mensagem enviada": null,
-  Respondeu: "#D8B255",
-  "Reunião agendada": "#D8B255",
-  "Reunião realizada": "#D8B255",
-  "Chamada agendada": "#D8B255",
+  "Novo lead": null,
+  "Enriquecendo dados": "#9A8B7C",
+  Qualificado: "#B58C52",
+  "Sinal identificado": "#B58C52",
+  "Abordagem enviada": "#A27C48",
+  "Em cadência": "#C97A3D",
+  "Conversa aberta": "#D8B255",
+  "Diagnóstico agendado": "#7B916D",
+  "Mapa de People enviado/realizado": "#607A61",
   "Proposta enviada": "#4C7A52",
+  Negociação: "#3F6B52",
   Cliente: "#4C7A52",
-  "Em standby": "#C97A3D",
-  Desalinhado: "#A5442F",
-  Declinou: "#A5442F",
-  "Sem interesse": "#A5442F",
+  "Sem fit / perdido": "#A5442F",
 };
 
 /** Cor "estrutural" — sempre retorna uma cor, mesmo para status neutros (usada em bordas/kanban). */
@@ -52,11 +55,60 @@ export function statusAccent(status?: string | null) {
 
 export const ADERENCIAS = ["Alta", "Média", "Parceria", "Baixa"];
 export const SEGMENTOS = ["A", "B", "C", "D"];
+export const PRIORIDADES = ["Alta", "Média", "Baixa"] as const;
+export const PAPEIS_CONTATO = ["Decisor", "Influenciador", "Outro"] as const;
+export const ORIGENS = [
+  "Indicação",
+  "LinkedIn",
+  "Instagram",
+  "Site",
+  "Evento",
+  "Lista",
+  "Inbound",
+  "Outro",
+] as const;
+export const SINAIS_COMPRA = [
+  "Engajou em conteúdo",
+  "Visitou perfil",
+  "Empresa contratando",
+  "Crescimento / expansão",
+  "Novo cargo",
+  "Postou sobre a dor",
+  "Indicação",
+  "Operação técnica",
+  "Sem sinal forte",
+] as const;
+export const SINAIS_QUENTES = new Set(["Engajou em conteúdo", "Visitou perfil", "Indicação"]);
+export const CADENCIA_STATUS = [
+  "Não iniciada",
+  "Ativa",
+  "Pausada por resposta",
+  "Concluída",
+] as const;
+
+export const CADENCIA = [
+  { toque: 1, nome: "Abertura pelo sinal", quando: "Dia 1", objetivo: "Abrir conexão" },
+  {
+    toque: 2,
+    nome: "Insight útil",
+    quando: "Dia 3–4",
+    objetivo: "Abrir conversa",
+  },
+  { toque: 3, nome: "Pergunta diagnóstica", quando: "Dia 7", objetivo: "Diagnosticar" },
+  { toque: 4, nome: "Convite claro", quando: "Dia 10–14", objetivo: "Agendar 20 minutos" },
+] as const;
+
+export const MENSAGEM_ROTEAMENTO =
+  "Oi! Tudo bem? Sou Patrícia Lima. Você consegue me dizer quem cuida das decisões sobre estrutura do time e desenvolvimento das lideranças na [Empresa]? Obrigada.";
+
+export const MENSAGEM_PONTE_MAPA =
+  "Entendi. É justamente para trazer clareza sobre esse tipo de situação que criamos o Mapa de People.\n\nEle identifica o que já funciona, os riscos para o crescimento e as prioridades mais adequadas ao momento da empresa — sem recomendar uma estrutura maior do que vocês precisam.";
 
 export const FUNIL = [
-  "Mensagem enviada",
-  "Respondeu",
-  "Reunião realizada",
+  "Abordagem enviada",
+  "Conversa aberta",
+  "Diagnóstico agendado",
+  "Mapa de People enviado/realizado",
   "Proposta enviada",
   "Cliente",
 ];
@@ -64,6 +116,25 @@ export const FUNIL = [
 export const DIAS_ESFRIANDO = 10;
 
 export const WHATSAPP_OPCOES = ["Não informado", "Sim", "Não"] as const;
+
+const STATUS_ANTERIOR_PARA_ATUAL: Record<string, string> = {
+  "Não contatado": "Novo lead",
+  "Mensagem enviada": "Abordagem enviada",
+  Respondeu: "Conversa aberta",
+  "Reunião agendada": "Diagnóstico agendado",
+  "Chamada agendada": "Diagnóstico agendado",
+  "Reunião realizada": "Mapa de People enviado/realizado",
+  "Em standby": "Em cadência",
+  Desalinhado: "Sem fit / perdido",
+  Declinou: "Sem fit / perdido",
+  "Sem interesse": "Sem fit / perdido",
+};
+
+export function normalizeStatus(valor?: string | null) {
+  const status = valor?.trim();
+  if (!status) return "Novo lead";
+  return STATUS_ANTERIOR_PARA_ATUAL[status] ?? status;
+}
 
 /** Normaliza texto livre ("SIM", "NÃO ", "sim", etc.) para um dos valores canônicos. */
 export function normalizeWhatsapp(valor?: string | null): string | null {
@@ -121,6 +192,31 @@ export const HEADER_MAP: Record<string, string> = {
   statusdocontato: "status",
   status: "status",
   origem: "origem",
+  cargo: "cargo_decisor",
+  cargododecisor: "cargo_decisor",
+  estado: "estado",
+  uf: "estado",
+  linkedindaempresa: "linkedin_empresa",
+  tamanhodotime: "tamanho_time",
+  numerodefuncionarios: "tamanho_time",
+  faixadefaturamento: "faixa_faturamento",
+  papelnocontato: "papel_contato",
+  icpfit: "icp_fit",
+  dorprovavel: "dor_provavel",
+  pessoaschave: "pessoas_chave",
+  estagiodecrescimento: "estagio_crescimento",
+  sinal: "sinal_compra",
+  sinaldecompra: "sinal_compra",
+  detalhedosinal: "sinal_detalhe",
+  fontedosinal: "sinal_fonte_url",
+  linksinal: "sinal_fonte_url",
+  urldosinal: "sinal_fonte_url",
+  prioridade: "prioridade",
+  responsavel: "responsavel",
+  proximopasso: "proximo_passo",
+  angulodeabordagem: "angulo_abordagem",
+  objecao: "objecao",
+  respostaaobjecao: "resposta_objecao",
 };
 
 export function normalizeHeader(h: string) {
@@ -141,6 +237,62 @@ export function proximosDiasUteis(dias = 3) {
     if (dow !== 0 && dow !== 6) restantes--;
   }
   return d.toISOString().slice(0, 10);
+}
+
+export function proximoIntervaloCadencia(toqueAtual: number) {
+  if (toqueAtual <= 1) return 2;
+  if (toqueAtual === 2) return 3;
+  return 4;
+}
+
+export function temCanalContato(lead: {
+  email?: string | null;
+  telefone?: string | null;
+  linkedin_decisor?: string | null;
+  whatsapp?: string | null;
+}) {
+  return Boolean(lead.email || lead.telefone || lead.linkedin_decisor || lead.whatsapp === "Sim");
+}
+
+export function prontoParaAbordagem(lead: {
+  empresa?: string | null;
+  nome_decisor?: string | null;
+  angulo_abordagem?: string | null;
+  sinal_compra?: string | null;
+  sinal_detalhe?: string | null;
+  email?: string | null;
+  telefone?: string | null;
+  linkedin_decisor?: string | null;
+  whatsapp?: string | null;
+}) {
+  return pendenciasAbordagem(lead).length === 0;
+}
+
+export function pendenciasAbordagem(lead: {
+  empresa?: string | null;
+  nome_decisor?: string | null;
+  angulo_abordagem?: string | null;
+  sinal_compra?: string | null;
+  sinal_detalhe?: string | null;
+  email?: string | null;
+  telefone?: string | null;
+  linkedin_decisor?: string | null;
+  whatsapp?: string | null;
+}) {
+  const pendencias: string[] = [];
+  if (!lead.empresa?.trim()) pendencias.push("empresa");
+  if (!lead.nome_decisor?.trim()) pendencias.push("nome do decisor");
+  if (!temCanalContato(lead)) pendencias.push("canal de contato");
+  if (!lead.sinal_compra) pendencias.push("contexto da abordagem");
+  if (lead.sinal_compra === "Sem sinal forte") {
+    if (!lead.angulo_abordagem?.trim()) pendencias.push("ângulo de abordagem");
+  } else if (lead.sinal_compra && !lead.sinal_detalhe?.trim()) {
+    pendencias.push("detalhe verificável do sinal");
+  }
+  if (!lead.angulo_abordagem?.trim() && !lead.sinal_detalhe?.trim()) {
+    pendencias.push("ângulo ou contexto registrado");
+  }
+  return pendencias;
 }
 
 export function diasDesde(iso?: string | null) {
@@ -165,8 +317,16 @@ export function formatDataHora(iso?: string | null) {
   });
 }
 
-export function preencherModelo(corpo: string, empresa?: string | null, nome?: string | null) {
+export function preencherModelo(
+  corpo: string,
+  dados: {
+    empresa?: string | null;
+    nome?: string | null;
+    sinal?: string | null;
+  },
+) {
   return corpo
-    .replaceAll("[Empresa]", empresa || "a empresa")
-    .replaceAll("[Nome]", (nome || "").split(" ")[0] || "tudo bem");
+    .replaceAll("[Empresa]", dados.empresa || "a empresa")
+    .replaceAll("[Nome]", (dados.nome || "").split(" ")[0] || "tudo bem")
+    .replaceAll("[Sinal]", dados.sinal || "o movimento que vocês anunciaram");
 }
