@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { LeadDrawer } from "@/components/LeadDrawer";
-import { STATUS_LIST, proximosDiasUteis, statusColor } from "@/lib/cali";
+import { STATUS_LIST, statusColor } from "@/lib/cali";
 import { atualizarLead, fetchLeads, type Lead } from "@/lib/db";
 
 export const Route = createFileRoute("/kanban")({
@@ -34,32 +34,8 @@ function Kanban() {
   const [colunasFechadas, setColunasFechadas] = useState<Set<string>>(new Set());
 
   const mover = useMutation({
-    mutationFn: async ({ lead, status }: { lead: Lead; status: string }) => {
-      const patch: Partial<Lead> = { status };
-      const agora = new Date().toISOString();
-      if (status === "Abordagem enviada") {
-        patch.primeiro_contato_em = lead.primeiro_contato_em ?? agora;
-        patch.ultima_interacao = agora;
-        patch.cadencia_status = "Ativa";
-        patch.cadencia_toque = Math.max(1, lead.cadencia_toque || 0);
-        patch.proximo_followup = lead.proximo_followup ?? proximosDiasUteis(2);
-      }
-      if (status === "Em cadência") patch.cadencia_status = "Ativa";
-      if (status === "Conversa aberta") {
-        patch.respondeu_em = lead.respondeu_em ?? agora;
-        patch.ultima_interacao = agora;
-        patch.cadencia_status = "Pausada por resposta";
-        patch.proximo_followup = null;
-      }
-      if (status === "Diagnóstico agendado") patch.diagnostico_agendado_em = agora;
-      if (status === "Mapa de People enviado/realizado") patch.mapa_people_em = agora;
-      if (status === "Proposta enviada") patch.proposta_enviada_em = agora;
-      if (status === "Cliente") {
-        patch.cadencia_status = "Concluída";
-        patch.proximo_followup = null;
-      }
-      return atualizarLead(lead, patch);
-    },
+    mutationFn: ({ lead, status }: { lead: Lead; status: string }) =>
+      atualizarLead(lead, { status }),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["leads"] });
       toast.success(`${vars.lead.empresa} → ${vars.status}`);
