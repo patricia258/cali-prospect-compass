@@ -174,6 +174,9 @@ function Leads() {
         sem_email: !l.email,
         com_linkedin: temLinkedIn,
         sem_linkedin: !temLinkedIn,
+        sem_decisor: !l.nome_decisor,
+        sem_linkedin_decisor: !l.linkedin_decisor,
+        sem_sinal_verificado: !l.sinal_compra || l.sinal_compra === "Sem sinal" || !l.sinal_detalhe,
         algum_canal: temCanalContato(l),
         sem_canal: !temCanalContato(l),
       };
@@ -188,6 +191,7 @@ function Leads() {
         l.notas,
         l.dor_provavel,
         l.sinal_detalhe,
+        l.sinal_fonte_url,
         l.angulo_abordagem,
         ...(l.tags ?? []),
       ]
@@ -253,6 +257,7 @@ function Leads() {
       "status",
       "sinal_compra",
       "sinal_detalhe",
+      "sinal_fonte_url",
       "sinal_data",
       "dor_provavel",
       "angulo_abordagem",
@@ -424,10 +429,13 @@ function Leads() {
           </Select>
           <Select value={canal} onValueChange={setCanal}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Canal" />
+              <SelectValue placeholder="Dados e canal" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todo canal</SelectItem>
+              <SelectItem value="todos">Todos os dados</SelectItem>
+              <SelectItem value="sem_decisor">Sem decisor</SelectItem>
+              <SelectItem value="sem_linkedin_decisor">Sem LinkedIn do decisor</SelectItem>
+              <SelectItem value="sem_sinal_verificado">Sem sinal verificado</SelectItem>
               <SelectItem value="algum_canal">Tem algum canal</SelectItem>
               <SelectItem value="sem_canal">Sem nenhum canal</SelectItem>
               <SelectItem value="com_site">Tem site</SelectItem>
