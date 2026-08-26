@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CADENCIA, SINAIS_COMPRA } from "@/lib/cali";
+import { CADENCIA, MENSAGEM_ROTEAMENTO, SINAIS_COMPRA } from "@/lib/cali";
 import { fetchEstrategias, salvarEstrategia, type EstrategiaMensagem } from "@/lib/db";
 
 export const Route = createFileRoute("/mensagens")({
@@ -69,7 +69,7 @@ function Mensagens() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {SINAIS_COMPRA.map((item) => (
+                {SINAIS_COMPRA.filter((item) => item !== "Sem sinal").map((item) => (
                   <SelectItem key={item} value={item}>
                     {item}
                   </SelectItem>
@@ -84,16 +84,41 @@ function Mensagens() {
             ))}
             {!modelos.length ? (
               <p className="text-sm text-muted-foreground">
-                Nenhum modelo cadastrado para este sinal. Use “Sem sinal” como base provisória.
+                Nenhum modelo cadastrado para este sinal. Crie um texto a partir do fato observado;
+                não use uma abordagem genérica.
               </p>
             ) : null}
           </div>
+        </section>
+
+        <section className="rounded-md border bg-card p-5 shadow-card">
+          <p className="label-eyebrow">Empresa sem decisor identificado</p>
+          <h2 className="mt-1 text-2xl text-primary">Roteamento, não prospecção</h2>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+            Use somente no telefone geral para descobrir a pessoa certa. Não apresente serviço,
+            diagnóstico ou proposta antes de localizar o decisor e confirmar um sinal.
+          </p>
+          <div className="mt-4 rounded-md border bg-secondary/40 p-4 text-sm leading-relaxed">
+            {MENSAGEM_ROTEAMENTO}
+          </div>
+          <Button
+            className="mt-4"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              navigator.clipboard.writeText(MENSAGEM_ROTEAMENTO);
+              toast.success("Mensagem de roteamento copiada.");
+            }}
+          >
+            Copiar roteiro
+          </Button>
         </section>
 
         <section className="rounded-md border border-dourado/40 bg-dourado/10 p-5 text-sm">
           <h2 className="text-lg text-primary">Regras que não podem ser quebradas</h2>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-muted-foreground">
             <li>Convite não leva pitch; ele vende apenas a conexão.</li>
+            <li>Sem decisor ou sem sinal verificável, o lead volta para enriquecimento.</li>
             <li>O fato citado precisa ser verdadeiro e verificável.</li>
             <li>Quem responde sai da cadência e vira conversa humana.</li>
             <li>Limite operacional: 10 a 20 convites por dia, em horários variados.</li>
