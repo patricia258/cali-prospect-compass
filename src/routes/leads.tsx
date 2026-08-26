@@ -152,7 +152,7 @@ function Leads() {
       }
       if (status !== "todos" && l.status !== status) return false;
       if (prioridade !== "todas" && l.prioridade !== prioridade) return false;
-      if (sinal !== "todos" && (l.sinal_compra || "Sem sinal") !== sinal) return false;
+      if (sinal !== "todos" && (l.sinal_compra || "Sem sinal forte") !== sinal) return false;
       if (somenteProntos && !prontoParaAbordagem(l)) return false;
       if (followup === "vencido" && !(l.proximo_followup && l.proximo_followup < hoje))
         return false;
@@ -176,7 +176,10 @@ function Leads() {
         sem_linkedin: !temLinkedIn,
         sem_decisor: !l.nome_decisor,
         sem_linkedin_decisor: !l.linkedin_decisor,
-        sem_sinal_verificado: !l.sinal_compra || l.sinal_compra === "Sem sinal" || !l.sinal_detalhe,
+        sem_sinal_verificado:
+          !l.sinal_compra ||
+          (l.sinal_compra !== "Sem sinal forte" && !l.sinal_detalhe) ||
+          (l.sinal_compra === "Sem sinal forte" && !l.angulo_abordagem),
         algum_canal: temCanalContato(l),
         sem_canal: !temCanalContato(l),
       };
@@ -594,7 +597,7 @@ function Leads() {
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground">{l.prioridade}</td>
                             <td className="max-w-44 px-3 py-2.5 text-xs text-muted-foreground">
-                              {l.sinal_compra || "Sem sinal"}
+                              {l.sinal_compra || "Sem sinal forte"}
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground">{l.cidade ?? "—"}</td>
                             <td className="px-3 py-2.5">
