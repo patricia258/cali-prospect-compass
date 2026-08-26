@@ -105,7 +105,7 @@ function Painel() {
       { id: "enriquecer", label: "Enriquecer", itens: g.enriquecer, tom: "neutro" },
     ];
 
-  const ativa = FILAS.find((f) => f.id === fila) ?? FILAS[0];
+  const ativa = FILAS.find((f) => f.id === fila) ?? { itens: [] as Lead[] };
   const linhas = [...ativa.itens]
     .sort((a, b) => (a.proximo_followup || "9999").localeCompare(b.proximo_followup || "9999"))
     .slice(0, 25);
