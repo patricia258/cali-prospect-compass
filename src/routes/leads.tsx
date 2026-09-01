@@ -22,15 +22,19 @@ import {
 import {
   ADERENCIAS,
   DIAS_ESFRIANDO,
+  FILA_LABELS,
   PRIORIDADES,
   SEGMENTOS,
   SINAIS_COMPRA,
   STATUS_LIST,
+  classificarFila,
   diasDesde,
+  filaDe,
   formatData,
   prontoParaAbordagem,
   statusColor,
   temCanalContato,
+  type Fila,
 } from "@/lib/cali";
 import {
   criarLead,
@@ -84,6 +88,8 @@ function Leads() {
   });
 
   const [busca, setBusca] = useState("");
+  const [fila, setFila] = useState<"todas" | Fila>("todas");
+  const [enriquecer, setEnriquecer] = useState<Set<string> | null>(null);
   const [aderencia, setAderencia] = useState("todas");
   const [segmento, setSegmento] = useState("todos");
   const [status, setStatus] = useState("todos");
