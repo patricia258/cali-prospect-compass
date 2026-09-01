@@ -146,6 +146,8 @@ function Leads() {
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const lista = leads.filter((l) => {
+      if (fila !== "todas" && filaDe(l) !== fila) return false;
+      if (enriquecer && !enriquecer.has(l.id)) return false;
       if (aderencia !== "todas" && (l.aderencia ?? "") !== aderencia) return false;
       if (segmento !== "todos") {
         if (segmento === "__vazio__" ? !!l.segmento : l.segmento !== segmento) return false;
