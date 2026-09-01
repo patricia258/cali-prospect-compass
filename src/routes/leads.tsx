@@ -638,7 +638,7 @@ function Leads() {
               })}
               {!isLoading && filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={COLUNAS.length} className="px-3 py-8 text-muted-foreground">
+                  <td colSpan={COLUNAS.length + 1} className="px-3 py-8 text-muted-foreground">
                     Nenhum lead com esses filtros.
                   </td>
                 </tr>
