@@ -51,7 +51,9 @@ import {
   proximoIntervaloCadencia,
   proximosDiasUteis,
   whatsappLink,
+  classificarFila,
 } from "@/lib/cali";
+import { FilaBadge } from "@/components/FilaBadge";
 import {
   atualizarLead,
   excluirLead,
@@ -255,6 +257,8 @@ export function LeadDrawer({
     draft.website || draft.google_maps || draft.linkedin_decisor || wa || draft.telefone;
   const pronto = prontoParaAbordagem(draft);
   const pendencias = pendenciasAbordagem(draft);
+  const filaAtual = classificarFila(draft);
+
 
   function statusChange(novo: string) {
     set({ status: novo }, true);
