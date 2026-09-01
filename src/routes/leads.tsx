@@ -514,7 +514,15 @@ function Leads() {
           <table className="w-full min-w-3xl text-sm">
             <thead>
               <tr className="border-b">
-                {COLUNAS.map((c) => (
+                <th className="px-3 py-2.5 text-left">
+                  <span className="label-eyebrow">Empresa</span>
+                </th>
+                <th className="px-3 py-2.5 text-left">
+                  <span className="label-eyebrow" title="Fila derivada de fit e sinal">
+                    Fila
+                  </span>
+                </th>
+                {COLUNAS.slice(1).map((c) => (
                   <th key={String(c.campo)} className="px-3 py-2.5 text-left">
                     <button
                       className="label-eyebrow hover:text-primary"
@@ -536,7 +544,7 @@ function Leads() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={COLUNAS.length} className="px-3 py-6 text-muted-foreground">
+                  <td colSpan={COLUNAS.length + 1} className="px-3 py-6 text-muted-foreground">
                     Carregando…
                   </td>
                 </tr>
@@ -547,7 +555,7 @@ function Leads() {
                   <Fragment key={g.titulo ?? "todos"}>
                     {g.titulo && (
                       <tr key={`h-${g.titulo}`} className="bg-secondary/60">
-                        <td colSpan={COLUNAS.length} className="px-3 py-1.5">
+                        <td colSpan={COLUNAS.length + 1} className="px-3 py-1.5">
                           <button
                             className="flex w-full items-center gap-2 text-left text-xs font-semibold"
                             onClick={() =>
@@ -578,6 +586,7 @@ function Leads() {
                       g.itens.map((l) => {
                         const vencido = !!l.proximo_followup && l.proximo_followup < hoje;
                         const esfriando = diasDesde(l.atualizado_em) > DIAS_ESFRIANDO;
+                        const { fila: filaLead, motivo } = classificarFila(l);
                         return (
                           <tr
                             key={l.id}
@@ -594,6 +603,9 @@ function Leads() {
                                   pronto para abordagem
                                 </span>
                               ) : null}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <FilaBadge fila={filaLead} motivo={motivo} />
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground">{l.prioridade}</td>
                             <td className="max-w-44 px-3 py-2.5 text-xs text-muted-foreground">
