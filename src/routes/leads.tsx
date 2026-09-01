@@ -217,6 +217,8 @@ function Leads() {
   }, [
     leads,
     busca,
+    fila,
+    enriquecer,
     aderencia,
     segmento,
     status,
@@ -229,6 +231,32 @@ function Leads() {
     hoje,
     emSeteDias,
   ]);
+
+  const contagemFilas = useMemo(() => {
+    const acc: Record<Fila, number> = { A: 0, B: 0, C: 0 };
+    for (const l of leads) acc[filaDe(l)] += 1;
+    return acc;
+  }, [leads]);
+
+  function proximos20() {
+    const candidatos = leads
+      .filter((l) => filaDe(l) === "C" && l.status !== "Sem fit / perdido")
+      .sort((a, b) => {
+        const novo = (l: Lead) => (l.status === "Novo lead" ? 0 : 1);
+        if (novo(a) !== novo(b)) return novo(a) - novo(b);
+        const dados = (l: Lead) => (l.website ? 0 : 1) + (l.telefone ? 0 : 1);
+        if (dados(a) !== dados(b)) return dados(a) - dados(b);
+        return (a.empresa ?? "").localeCompare(b.empresa ?? "", "pt-BR");
+      })
+      .slice(0, 20);
+    if (!candidatos.length) {
+      toast.info("Nenhum lead da Fila C disponível para enriquecer.");
+      return;
+    }
+    setEnriquecer(new Set(candidatos.map((l) => l.id)));
+    setFila("C");
+    toast.success(`${candidatos.length} leads da Fila C na visão de enriquecimento.`);
+  }
 
   const grupos = useMemo(() => {
     if (!agrupar) return [{ titulo: null as string | null, itens: filtrados }];
