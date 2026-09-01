@@ -43,7 +43,6 @@ export const STATUS_COLORS: Record<string, string | null> = {
   "Sem fit / perdido": "#991B1B",
 };
 
-
 /** Cor "estrutural" — sempre retorna uma cor, mesmo para status neutros (usada em bordas/kanban). */
 export function statusColor(status?: string | null) {
   return STATUS_COLORS[status ?? ""] ?? "#B7A99A";
@@ -100,10 +99,10 @@ export const CADENCIA = [
 ] as const;
 
 export const MENSAGEM_ROTEAMENTO =
-  "Oi! Tudo bem? Sou Patrícia Lima. Você consegue me dizer quem cuida das decisões sobre estrutura do time e desenvolvimento das lideranças na [Empresa]? Obrigada.";
+  "Oi, tudo bem? Patrícia aqui, da CALI RH. Eu estava conhecendo um pouco a [Empresa] e queria só confirmar uma coisa: quem costuma olhar a parte de gestão de pessoas e liderança por aí? Você consegue me passar o contato dessa pessoa?";
 
 export const MENSAGEM_PONTE_MAPA =
-  "Entendi. É justamente para trazer clareza sobre esse tipo de situação que criamos o Mapa de People.\n\nEle identifica o que já funciona, os riscos para o crescimento e as prioridades mais adequadas ao momento da empresa — sem recomendar uma estrutura maior do que vocês precisam.";
+  "Entendi. Deixa eu te contar uma coisa: eu desenvolvi uma ferramenta que chama Mapa de People e uso justamente para fazer uma primeira leitura disso sem você precisar me contar a vida inteira da empresa rs.\n\nSe quiser, te mando por aqui. É gratuito, leva uns 7 minutos e no final você recebe um relatório com a leitura completa do cenário.\n\nAcho que pode te ajudar a enxergar essa parte com mais clareza.";
 
 export const FUNIL = [
   "Abordagem enviada",
@@ -388,4 +387,151 @@ export function classificarFila(lead: LeadFila): { fila: Fila; motivo: string } 
 
 export function filaDe(lead: LeadFila): Fila {
   return classificarFila(lead).fila;
+}
+
+/* ---------------------------------------------------------------------------
+ * Rotina comercial — transforma inteligência do lead em ação simples para a Pati.
+ * ------------------------------------------------------------------------- */
+
+export type CanalAbordagem =
+  | "WhatsApp"
+  | "E-mail"
+  | "LinkedIn"
+  | "Telefone / WhatsApp a validar"
+  | "Telefone para roteamento"
+  | "E-mail para roteamento"
+  | "Pesquisar canal";
+
+type LeadAbordagem = LeadFila & {
+  empresa?: string | null;
+  categoria?: string | null;
+  cidade?: string | null;
+  nome_decisor?: string | null;
+  cargo_decisor?: string | null;
+  email?: string | null;
+  telefone?: string | null;
+  whatsapp?: string | null;
+  linkedin_decisor?: string | null;
+  angulo_abordagem?: string | null;
+  prioridade?: string | null;
+  primeiro_contato_em?: string | null;
+  icp_fit?: number | null;
+};
+
+export function canalRecomendado(lead: LeadAbordagem): CanalAbordagem {
+  if (lead.whatsapp === "Sim" && lead.telefone) return "WhatsApp";
+  if (lead.nome_decisor && lead.email) return "E-mail";
+  if (lead.linkedin_decisor) return "LinkedIn";
+  if (lead.nome_decisor && lead.telefone) return "Telefone / WhatsApp a validar";
+  if (lead.telefone) return "Telefone para roteamento";
+  if (lead.email) return "E-mail para roteamento";
+  return "Pesquisar canal";
+}
+
+function primeiroNome(nome?: string | null) {
+  return nome?.trim().split(/\s+/)[0] || "";
+}
+
+function contextoOperacao(lead: LeadAbordagem) {
+  const categoria = (lead.categoria ?? "").toLowerCase();
+  const local = lead.cidade ? ` aí em ${lead.cidade}` : "";
+  if (/industr|quim|autom|tecn|software|engenh|metal|fabric/.test(categoria)) {
+    return `Vi que vocês têm uma operação bem técnica${local}.`;
+  }
+  if (/clinic|saude|médic|medic|hospital|laborat/.test(categoria)) {
+    return `Eu estava conhecendo um pouco a operação da ${lead.empresa}${local}.`;
+  }
+  return `Eu estava conhecendo um pouco a ${lead.empresa}${local}.`;
+}
+
+export function planoAbordagem(lead: LeadAbordagem) {
+  const canal = canalRecomendado(lead);
+  const nome = primeiroNome(lead.nome_decisor);
+  const empresa = lead.empresa || "empresa";
+  const temDecisor = Boolean(lead.nome_decisor?.trim());
+  const sinal = lead.sinal_compra || "Sem sinal forte";
+  const contexto = contextoOperacao(lead);
+
+  let objetivo = temDecisor
+    ? "Confirmar se a gestão de pessoas fica com essa pessoa ou se existe outro responsável."
+    : "Descobrir quem é a pessoa responsável por gestão de pessoas antes de vender qualquer coisa.";
+
+  let mensagem = MENSAGEM_ROTEAMENTO.replace("[Empresa]", empresa);
+  let assunto: string | null = null;
+
+  if (temDecisor) {
+    if (sinal === "Empresa contratando") {
+      mensagem = `Oi, ${nome}, tudo bem? Patrícia aqui, da CALI RH.\n\nVi que vocês estão ampliando o time na ${empresa}. Parabéns pelo movimento. Imagino que junto com as contratações venham algumas decisões de gestão de pessoas também.\n\nEssa frente fica com você ou tem alguém que toca a gestão de pessoas por aí?`;
+    } else if (sinal === "Crescimento / expansão") {
+      mensagem = `Oi, ${nome}, tudo bem? Patrícia aqui, da CALI RH.\n\nVi o movimento de crescimento da ${empresa}. Parabéns — desejo muito sucesso nessa fase. Imagino que junto com a estrutura venham algumas decisões de gestão de pessoas também.\n\nEssa frente fica com você ou tem alguém que toca a gestão de pessoas por aí?`;
+    } else if (sinal !== "Sem sinal forte" && lead.sinal_detalhe?.trim()) {
+      mensagem = `Oi, ${nome}, tudo bem? Patrícia aqui, da CALI RH.\n\nVi um pouco do movimento recente da ${empresa} e achei que valia te escrever. Eu trabalho aqui em Curitiba e região apoiando empresas na parte de gestão de pessoas e liderança.\n\nMe responde uma coisa: essa frente fica com você ou tem alguém que toca a gestão de pessoas por aí?`;
+    } else {
+      mensagem = `Oi, ${nome}, tudo bem? Patrícia aqui, da CALI RH. Tô chegando meio do nada mesmo rs.\n\n${contexto} Eu trabalho aqui em Curitiba e região apoiando empresas na parte de gestão de pessoas e liderança.\n\nMe responde uma coisa: essa frente fica com você ou tem alguém que toca a gestão de pessoas por aí?`;
+    }
+  }
+
+  if (canal === "LinkedIn" && temDecisor) {
+    mensagem = `Oi, ${nome}, tudo bem? Patrícia aqui, da CALI RH. Eu estava conhecendo um pouco a ${empresa} e queria te fazer uma pergunta rápida: a frente de gestão de pessoas fica com você ou tem alguém que toca isso por aí?`;
+  }
+
+  if (canal === "E-mail" && temDecisor) {
+    assunto = `Uma pergunta rápida sobre a ${empresa}`;
+    mensagem = `Oi, ${nome}, tudo bem?\n\nPatrícia aqui, da CALI RH. ${contexto} Eu trabalho com empresas de Curitiba e região na parte de gestão de pessoas e liderança.\n\nQueria só confirmar uma coisa: essa frente fica com você ou tem alguém que toca a gestão de pessoas por aí?\n\nAbraço,\nPatrícia`;
+  }
+
+  const porQue =
+    lead.sinal_detalhe?.trim() ||
+    lead.angulo_abordagem?.trim() ||
+    (lead.icp_fit ? `Fit ${lead.icp_fit}/10 com o perfil comercial da CALI.` : "Lead qualificado para abordagem.");
+
+  const evitar =
+    "Não apresentar a CALI inteira, não mandar PDF/Mapa de People e não perguntar ‘qual seu maior desafio?’ no primeiro contato.";
+
+  return {
+    canal,
+    falarCom: lead.nome_decisor
+      ? `${lead.nome_decisor}${lead.cargo_decisor ? ` · ${lead.cargo_decisor}` : ""}`
+      : "Responsável por gestão de pessoas ainda não identificado",
+    porQue,
+    objetivo,
+    evitar,
+    assunto,
+    mensagem,
+    textoCopiar: assunto ? `Assunto: ${assunto}\n\n${mensagem}` : mensagem,
+  };
+}
+
+const STATUS_PRE_CONTATO = new Set([
+  "Novo lead",
+  "Enriquecendo dados",
+  "Qualificado",
+  "Sinal identificado",
+]);
+
+export function leadAbordavelHoje(lead: LeadAbordagem) {
+  const fila = filaDe(lead);
+  if (fila !== "A" && fila !== "B") return false;
+  if (!STATUS_PRE_CONTATO.has(lead.status ?? "")) return false;
+  if (lead.primeiro_contato_em) return false;
+  return prontoParaAbordagem(lead);
+}
+
+export function scoreContatoHoje(lead: LeadAbordagem) {
+  const fila = filaDe(lead);
+  const canal = canalRecomendado(lead);
+  const bonusFila = fila === "A" ? 1000 : 500;
+  const bonusFit = (lead.icp_fit ?? 0) * 20;
+  const bonusPrioridade = lead.prioridade === "Alta" ? 80 : lead.prioridade === "Média" ? 40 : 0;
+  const bonusCanal =
+    canal === "WhatsApp"
+      ? 50
+      : canal === "E-mail"
+        ? 40
+        : canal === "LinkedIn"
+          ? 35
+          : canal === "Telefone / WhatsApp a validar"
+            ? 25
+            : 0;
+  return bonusFila + bonusFit + bonusPrioridade + bonusCanal;
 }
