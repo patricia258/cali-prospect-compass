@@ -331,3 +331,61 @@ export function preencherModelo(
     .replaceAll("[Nome]", (dados.nome || "").split(" ")[0] || "tudo bem")
     .replaceAll("[Sinal]", dados.sinal || "o movimento que vocês anunciaram");
 }
+
+/* ---------------------------------------------------------------------------
+ * Filas de trabalho A/B/C — regra única, derivada dos campos existentes.
+ * ------------------------------------------------------------------------- */
+
+export type Fila = "A" | "B" | "C";
+
+export const FILA_LABELS: Record<Fila, string> = {
+  A: "Fila A — abordar agora",
+  B: "Fila B — fit forte",
+  C: "Fila C — pesquisar/qualificar",
+};
+
+export const FILA_CORES: Record<Fila, string> = {
+  A: "#5A1E2D",
+  B: "#B58C52",
+  C: "#8A8078",
+};
+
+type LeadFila = {
+  icp_fit?: number | null;
+  sinal_compra?: string | null;
+  sinal_detalhe?: string | null;
+  sinal_fonte_url?: string | null;
+  status?: string | null;
+};
+
+/** Sinal considerado verificado: humano basta detalhe; pesquisado exige detalhe + fonte. */
+export function sinalVerificado(lead: LeadFila) {
+  const sinal = lead.sinal_compra?.trim();
+  if (!sinal || sinal === "Sem sinal forte") return false;
+  const detalhe = Boolean(lead.sinal_detalhe?.trim());
+  if (!detalhe) return false;
+  if (SINAIS_QUENTES.has(sinal)) return true;
+  return Boolean(lead.sinal_fonte_url?.trim());
+}
+
+export function classificarFila(lead: LeadFila): { fila: Fila; motivo: string } {
+  const fit = typeof lead.icp_fit === "number" ? lead.icp_fit : null;
+
+  if (lead.status === "Sem fit / perdido") {
+    return { fila: "C", motivo: "C · encerrado como sem fit / perdido" };
+  }
+  if (fit === null) {
+    return { fila: "C", motivo: "C · ainda sem fit validado" };
+  }
+  if (fit < 7) {
+    return { fila: "C", motivo: `C · fit ${fit}, abaixo do corte de 7` };
+  }
+  if (sinalVerificado(lead)) {
+    return { fila: "A", motivo: `A · fit ${fit} + sinal verificado` };
+  }
+  return { fila: "B", motivo: `B · fit ${fit}, sem sinal verificado` };
+}
+
+export function filaDe(lead: LeadFila): Fila {
+  return classificarFila(lead).fila;
+}

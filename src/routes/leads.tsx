@@ -8,6 +8,7 @@ import { Shell } from "@/components/Shell";
 import { LeadDrawer } from "@/components/LeadDrawer";
 import { ImportDialog } from "@/components/ImportDialog";
 import { StatusBadge } from "@/components/StatusBadge";
+import { FilaBadge } from "@/components/FilaBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -22,15 +23,19 @@ import {
 import {
   ADERENCIAS,
   DIAS_ESFRIANDO,
+  FILA_LABELS,
   PRIORIDADES,
   SEGMENTOS,
   SINAIS_COMPRA,
   STATUS_LIST,
+  classificarFila,
   diasDesde,
+  filaDe,
   formatData,
   prontoParaAbordagem,
   statusColor,
   temCanalContato,
+  type Fila,
 } from "@/lib/cali";
 import {
   criarLead,
@@ -84,6 +89,8 @@ function Leads() {
   });
 
   const [busca, setBusca] = useState("");
+  const [fila, setFila] = useState<"todas" | Fila>("todas");
+  const [enriquecer, setEnriquecer] = useState<Set<string> | null>(null);
   const [aderencia, setAderencia] = useState("todas");
   const [segmento, setSegmento] = useState("todos");
   const [status, setStatus] = useState("todos");
@@ -146,6 +153,8 @@ function Leads() {
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const lista = leads.filter((l) => {
+      if (fila !== "todas" && filaDe(l) !== fila) return false;
+      if (enriquecer && !enriquecer.has(l.id)) return false;
       if (aderencia !== "todas" && (l.aderencia ?? "") !== aderencia) return false;
       if (segmento !== "todos") {
         if (segmento === "__vazio__" ? !!l.segmento : l.segmento !== segmento) return false;
@@ -215,6 +224,8 @@ function Leads() {
   }, [
     leads,
     busca,
+    fila,
+    enriquecer,
     aderencia,
     segmento,
     status,
@@ -227,6 +238,32 @@ function Leads() {
     hoje,
     emSeteDias,
   ]);
+
+  const contagemFilas = useMemo(() => {
+    const acc: Record<Fila, number> = { A: 0, B: 0, C: 0 };
+    for (const l of leads) acc[filaDe(l)] += 1;
+    return acc;
+  }, [leads]);
+
+  function proximos20() {
+    const candidatos = leads
+      .filter((l) => filaDe(l) === "C" && l.status !== "Sem fit / perdido")
+      .sort((a, b) => {
+        const novo = (l: Lead) => (l.status === "Novo lead" ? 0 : 1);
+        if (novo(a) !== novo(b)) return novo(a) - novo(b);
+        const dados = (l: Lead) => (l.website ? 0 : 1) + (l.telefone ? 0 : 1);
+        if (dados(a) !== dados(b)) return dados(a) - dados(b);
+        return (a.empresa ?? "").localeCompare(b.empresa ?? "", "pt-BR");
+      })
+      .slice(0, 20);
+    if (!candidatos.length) {
+      toast.info("Nenhum lead da Fila C disponível para enriquecer.");
+      return;
+    }
+    setEnriquecer(new Set(candidatos.map((l) => l.id)));
+    setFila("C");
+    toast.success(`${candidatos.length} leads da Fila C na visão de enriquecimento.`);
+  }
 
   const grupos = useMemo(() => {
     if (!agrupar) return [{ titulo: null as string | null, itens: filtrados }];
@@ -364,6 +401,23 @@ function Leads() {
             placeholder="Buscar empresa, decisor, categoria, etiqueta…"
             className="min-w-52 flex-1"
           />
+          <Select
+            value={fila}
+            onValueChange={(v) => {
+              setEnriquecer(null);
+              setFila(v as "todas" | Fila);
+            }}
+          >
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Fila" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as filas</SelectItem>
+              <SelectItem value="A">Fila A</SelectItem>
+              <SelectItem value="B">Fila B</SelectItem>
+              <SelectItem value="C">Fila C</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={aderencia} onValueChange={setAderencia}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Aderência" />
@@ -478,6 +532,37 @@ function Leads() {
           </div>
         </div>
 
+        <section className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-3">
+          {(["A", "B", "C"] as Fila[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => {
+                setEnriquecer(null);
+                setFila((atual) => (atual === f ? "todas" : f));
+              }}
+              className={
+                fila === f
+                  ? "flex items-center gap-2 rounded-sm border border-primary bg-secondary px-3 py-2 text-left"
+                  : "flex items-center gap-2 rounded-sm border px-3 py-2 text-left hover:bg-secondary/60"
+              }
+            >
+              <FilaBadge fila={f} />
+              <span className="text-xs text-muted-foreground">{FILA_LABELS[f]}</span>
+              <span className="font-display text-lg text-primary">{contagemFilas[f]}</span>
+            </button>
+          ))}
+          <Button variant="outline" size="sm" className="ml-auto" onClick={proximos20}>
+            Próximos 20 para enriquecer
+          </Button>
+          {enriquecer ? (
+            <Button variant="ghost" size="sm" onClick={() => setEnriquecer(null)}>
+              Limpar visão ({enriquecer.size})
+            </Button>
+          ) : null}
+        </section>
+
+
+
         <div className="flex flex-wrap items-center gap-2">
           <span className="label-eyebrow">Visões</span>
           {visoes.map((v) => (
@@ -514,7 +599,27 @@ function Leads() {
           <table className="w-full min-w-3xl text-sm">
             <thead>
               <tr className="border-b">
-                {COLUNAS.map((c) => (
+                <th className="px-3 py-2.5 text-left">
+                  <button
+                    className="label-eyebrow hover:text-primary"
+                    onClick={() =>
+                      setOrdem((o) =>
+                        o.campo === "empresa"
+                          ? { campo: "empresa", dir: o.dir === "asc" ? "desc" : "asc" }
+                          : { campo: "empresa", dir: "asc" },
+                      )
+                    }
+                  >
+                    Empresa
+                    {ordem.campo === "empresa" ? (ordem.dir === "asc" ? " ↑" : " ↓") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2.5 text-left">
+                  <span className="label-eyebrow" title="Fila derivada de fit e sinal">
+                    Fila
+                  </span>
+                </th>
+                {COLUNAS.slice(1).map((c) => (
                   <th key={String(c.campo)} className="px-3 py-2.5 text-left">
                     <button
                       className="label-eyebrow hover:text-primary"
@@ -536,7 +641,7 @@ function Leads() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={COLUNAS.length} className="px-3 py-6 text-muted-foreground">
+                  <td colSpan={COLUNAS.length + 1} className="px-3 py-6 text-muted-foreground">
                     Carregando…
                   </td>
                 </tr>
@@ -547,7 +652,7 @@ function Leads() {
                   <Fragment key={g.titulo ?? "todos"}>
                     {g.titulo && (
                       <tr key={`h-${g.titulo}`} className="bg-secondary/60">
-                        <td colSpan={COLUNAS.length} className="px-3 py-1.5">
+                        <td colSpan={COLUNAS.length + 1} className="px-3 py-1.5">
                           <button
                             className="flex w-full items-center gap-2 text-left text-xs font-semibold"
                             onClick={() =>
@@ -578,6 +683,7 @@ function Leads() {
                       g.itens.map((l) => {
                         const vencido = !!l.proximo_followup && l.proximo_followup < hoje;
                         const esfriando = diasDesde(l.atualizado_em) > DIAS_ESFRIANDO;
+                        const { fila: filaLead, motivo } = classificarFila(l);
                         return (
                           <tr
                             key={l.id}
@@ -594,6 +700,9 @@ function Leads() {
                                   pronto para abordagem
                                 </span>
                               ) : null}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <FilaBadge fila={filaLead} motivo={motivo} />
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground">{l.prioridade}</td>
                             <td className="max-w-44 px-3 py-2.5 text-xs text-muted-foreground">
@@ -638,7 +747,7 @@ function Leads() {
               })}
               {!isLoading && filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={COLUNAS.length} className="px-3 py-8 text-muted-foreground">
+                  <td colSpan={COLUNAS.length + 1} className="px-3 py-8 text-muted-foreground">
                     Nenhum lead com esses filtros.
                   </td>
                 </tr>

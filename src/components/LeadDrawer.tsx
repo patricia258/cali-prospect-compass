@@ -51,7 +51,9 @@ import {
   proximoIntervaloCadencia,
   proximosDiasUteis,
   whatsappLink,
+  classificarFila,
 } from "@/lib/cali";
+import { FilaBadge } from "@/components/FilaBadge";
 import {
   atualizarLead,
   excluirLead,
@@ -255,6 +257,8 @@ export function LeadDrawer({
     draft.website || draft.google_maps || draft.linkedin_decisor || wa || draft.telefone;
   const pronto = prontoParaAbordagem(draft);
   const pendencias = pendenciasAbordagem(draft);
+  const filaAtual = classificarFila(draft);
+
 
   function statusChange(novo: string) {
     set({ status: novo }, true);
@@ -343,6 +347,10 @@ export function LeadDrawer({
           <SheetTitle className="font-display text-2xl text-primary">{draft.empresa}</SheetTitle>
           <SheetDescription className="flex flex-wrap items-center gap-2">
             <StatusBadge status={draft.status} />
+            <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+              <FilaBadge fila={filaAtual.fila} motivo={filaAtual.motivo} />
+              {filaAtual.motivo}
+            </span>
             <span
               className={
                 pronto
