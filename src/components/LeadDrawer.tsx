@@ -36,7 +36,6 @@ import {
   ADERENCIAS,
   CADENCIA_STATUS,
   MENSAGEM_PONTE_MAPA,
-  MENSAGEM_ROTEAMENTO,
   ORIGENS,
   PAPEIS_CONTATO,
   PRIORIDADES,
@@ -44,14 +43,15 @@ import {
   SINAIS_COMPRA,
   STATUS_LIST,
   WHATSAPP_OPCOES,
+  classificarFila,
   formatDataHora,
   pendenciasAbordagem,
+  planoAbordagem,
   preencherModelo,
   prontoParaAbordagem,
   proximoIntervaloCadencia,
   proximosDiasUteis,
   whatsappLink,
-  classificarFila,
 } from "@/lib/cali";
 import { FilaBadge } from "@/components/FilaBadge";
 import {
@@ -173,6 +173,11 @@ export function LeadDrawer({
     return estrategias.filter((m) => m.sinal === sinal);
   }, [estrategias, draft?.sinal_compra]);
 
+  const cadenciaAcompanhamento = useMemo(
+    () => estrategiasDoSinal.filter((m) => m.toque > 1),
+    [estrategiasDoSinal],
+  );
+
   async function flushAutoSave(): Promise<boolean> {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -258,7 +263,7 @@ export function LeadDrawer({
   const pronto = prontoParaAbordagem(draft);
   const pendencias = pendenciasAbordagem(draft);
   const filaAtual = classificarFila(draft);
-
+  const plano = planoAbordagem(draft);
 
   function statusChange(novo: string) {
     set({ status: novo }, true);
@@ -276,10 +281,55 @@ export function LeadDrawer({
       tipo: "mensagem_copiada",
       descricao: estrategia
         ? `Toque ${estrategia.toque} copiado: ${estrategia.titulo}.`
-        : "Modelo copiado para envio.",
+        : "Mensagem de abordagem copiada para revisão.",
     });
     qc.invalidateQueries({ queryKey: ["eventos", draft!.id] });
     toast.success("Mensagem copiada.");
+  }
+
+  async function marcarPrimeiroContato() {
+    if (!pronto) {
+      toast.error("Complete decisor, canal e contexto antes de marcar a abordagem.");
+      return;
+    }
+    if (draft!.primeiro_contato_em || draft!.cadencia_toque > 0) {
+      toast.info("O primeiro contato já foi registrado para este lead.");
+      return;
+    }
+    try {
+      const salvou = await flushAutoSave();
+      if (!salvou) {
+        toast.error("Há informações obrigatórias pendentes.");
+        return;
+      }
+      const agora = new Date().toISOString();
+      const patch: Partial<Lead> = {
+        cadencia_toque: 1,
+        cadencia_status: "Ativa",
+        modelo_usado: `Plano direto · ${plano.canal}`,
+        ultima_interacao: agora,
+        primeiro_contato_em: agora,
+        proximo_followup: proximosDiasUteis(2),
+        status: "Abordagem enviada",
+      };
+      const base = savedLeadRef.current ?? draft!;
+      const atualizado = await atualizarLead(base, patch);
+      savedLeadRef.current = atualizado;
+      draftRef.current = atualizado;
+      setDraft(atualizado);
+      await registrarEvento({
+        lead_id: draft!.id,
+        tipo: "primeiro_contato",
+        descricao: `Primeira abordagem marcada como enviada via ${plano.canal}.`,
+      });
+      qc.setQueryData<Lead[]>(["leads"], (atuais) =>
+        atuais?.map((item) => (item.id === atualizado.id ? atualizado : item)),
+      );
+      qc.invalidateQueries({ queryKey: ["eventos", draft!.id] });
+      toast.success("Primeiro contato registrado. Próximo follow-up agendado.");
+    } catch {
+      toast.error("Não foi possível registrar o primeiro contato.");
+    }
   }
 
   async function marcarToqueEnviado(estrategia: EstrategiaMensagem) {
@@ -401,13 +451,72 @@ export function LeadDrawer({
           )}
         </SheetHeader>
 
+        <section className="mt-4 rounded-md border border-primary/15 bg-secondary/30 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="label-eyebrow">Plano de abordagem</p>
+              <h3 className="mt-1 font-display text-xl text-primary">{plano.canal}</h3>
+            </div>
+            <FilaBadge fila={filaAtual.fila} motivo={filaAtual.motivo} />
+          </div>
+          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Falar com
+              </p>
+              <p className="mt-1">{plano.falarCom}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Primeiro objetivo
+              </p>
+              <p className="mt-1">{plano.objetivo}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Por que vale abordar
+              </p>
+              <p className="mt-1">{plano.porQue}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Evite no primeiro contato
+              </p>
+              <p className="mt-1 text-muted-foreground">{plano.evitar}</p>
+            </div>
+          </div>
+          <div className="mt-4 rounded-md border bg-card p-3">
+            {plano.assunto ? (
+              <p className="mb-2 text-xs font-medium text-primary">Assunto: {plano.assunto}</p>
+            ) : null}
+            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{plano.mensagem}</pre>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => copiar(plano.textoCopiar)}>
+              Copiar mensagem
+            </Button>
+            <Button
+              size="sm"
+              disabled={!pronto || Boolean(draft.primeiro_contato_em) || draft.cadencia_toque > 0}
+              onClick={marcarPrimeiroContato}
+            >
+              Marcar como enviada
+            </Button>
+          </div>
+          {!pronto ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Para entrar nos “Contatos de hoje”, complete: {pendencias.join(", ")}.
+            </p>
+          ) : null}
+        </section>
+
         <Tabs defaultValue="ficha" className="pb-2">
           <TabsList className="mt-4 w-full border">
             <TabsTrigger value="ficha" className="flex-1">
               Ficha
             </TabsTrigger>
             <TabsTrigger value="mensagens" className="flex-1">
-              Estratégia
+              Cadência
             </TabsTrigger>
             <TabsTrigger value="historico" className="flex-1">
               Histórico
@@ -751,52 +860,28 @@ export function LeadDrawer({
               }
             >
               <p className="font-medium text-primary">
-                {pronto
-                  ? `${draft.sinal_compra} · toque atual ${draft.cadencia_toque}/4`
-                  : "Enriquecer antes de abordar"}
+                {pronto ? "Cadência depois do primeiro contato" : "Enriquecer antes de abordar"}
               </p>
               {pronto ? (
                 <p className="mt-1 text-muted-foreground">
-                  Copie, revise e envie manualmente. Quando houver resposta, mude para “Conversa
-                  aberta”: a cadência será pausada imediatamente.
+                  O primeiro contato usa o Plano de abordagem acima. Depois de marcar como enviado,
+                  os próximos toques aparecem aqui. Se houver resposta, mude para “Conversa aberta”
+                  e a cadência será pausada.
                 </p>
               ) : (
-                <>
-                  <p className="mt-1 text-muted-foreground">
-                    Não use uma dor presumida como personalização. Complete: {pendencias.join(", ")}
-                    .
-                  </p>
-                  {draft.telefone ? (
-                    <div className="mt-4 rounded-md border bg-card p-3">
-                      <p className="label-eyebrow">Roteamento · não é abordagem comercial</p>
-                      <p className="mt-2 leading-relaxed">
-                        {preencherModelo(MENSAGEM_ROTEAMENTO, {
-                          empresa: draft.empresa,
-                          nome: draft.nome_decisor,
-                          sinal: draft.sinal_detalhe,
-                        })}
-                      </p>
-                      <Button
-                        className="mt-3"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copiar(MENSAGEM_ROTEAMENTO)}
-                      >
-                        Copiar para localizar o decisor
-                      </Button>
-                    </div>
-                  ) : null}
-                </>
+                <p className="mt-1 text-muted-foreground">
+                  Não use uma dor presumida como personalização. Complete: {pendencias.join(", ")}.
+                </p>
               )}
             </div>
-            {pronto && !estrategiasDoSinal.length ? (
+            {pronto && !cadenciaAcompanhamento.length ? (
               <p className="rounded-md border bg-card p-4 text-sm text-muted-foreground">
-                Ainda não há uma cadência cadastrada para este sinal. Não use um modelo genérico:
-                registre a mensagem a partir do fato observado.
+                Ainda não há acompanhamento cadastrado para este sinal. Não improvise cadência:
+                retome a conversa a partir do contexto real do lead.
               </p>
             ) : null}
             {pronto &&
-              estrategiasDoSinal.map((m) => {
+              cadenciaAcompanhamento.map((m) => {
                 const proximoToque = draft.cadencia_toque < 4 ? draft.cadencia_toque + 1 : null;
                 const sugerido = m.toque === proximoToque;
                 return (
