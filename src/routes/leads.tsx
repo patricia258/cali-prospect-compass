@@ -8,6 +8,7 @@ import { Shell } from "@/components/Shell";
 import { LeadDrawer } from "@/components/LeadDrawer";
 import { ImportDialog } from "@/components/ImportDialog";
 import { StatusBadge } from "@/components/StatusBadge";
+import { FilaBadge } from "@/components/FilaBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -400,6 +401,23 @@ function Leads() {
             placeholder="Buscar empresa, decisor, categoria, etiqueta…"
             className="min-w-52 flex-1"
           />
+          <Select
+            value={fila}
+            onValueChange={(v) => {
+              setEnriquecer(null);
+              setFila(v as "todas" | Fila);
+            }}
+          >
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Fila" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as filas</SelectItem>
+              <SelectItem value="A">Fila A</SelectItem>
+              <SelectItem value="B">Fila B</SelectItem>
+              <SelectItem value="C">Fila C</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={aderencia} onValueChange={setAderencia}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Aderência" />
@@ -513,6 +531,37 @@ function Leads() {
             </Label>
           </div>
         </div>
+
+        <section className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-3">
+          {(["A", "B", "C"] as Fila[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => {
+                setEnriquecer(null);
+                setFila((atual) => (atual === f ? "todas" : f));
+              }}
+              className={
+                fila === f
+                  ? "flex items-center gap-2 rounded-sm border border-primary bg-secondary px-3 py-2 text-left"
+                  : "flex items-center gap-2 rounded-sm border px-3 py-2 text-left hover:bg-secondary/60"
+              }
+            >
+              <FilaBadge fila={f} />
+              <span className="text-xs text-muted-foreground">{FILA_LABELS[f]}</span>
+              <span className="font-display text-lg text-primary">{contagemFilas[f]}</span>
+            </button>
+          ))}
+          <Button variant="outline" size="sm" className="ml-auto" onClick={proximos20}>
+            Próximos 20 para enriquecer
+          </Button>
+          {enriquecer ? (
+            <Button variant="ghost" size="sm" onClick={() => setEnriquecer(null)}>
+              Limpar visão ({enriquecer.size})
+            </Button>
+          ) : null}
+        </section>
+
+
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="label-eyebrow">Visões</span>
