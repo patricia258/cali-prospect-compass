@@ -343,6 +343,10 @@ export function LeadDrawer({
           <SheetTitle className="font-display text-2xl text-primary">{draft.empresa}</SheetTitle>
           <SheetDescription className="flex flex-wrap items-center gap-2">
             <StatusBadge status={draft.status} />
+            <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+              <FilaBadge fila={filaAtual.fila} motivo={filaAtual.motivo} />
+              {filaAtual.motivo}
+            </span>
             <span
               className={
                 pronto
