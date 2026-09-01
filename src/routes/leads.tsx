@@ -28,11 +28,14 @@ import {
   SEGMENTOS,
   SINAIS_COMPRA,
   STATUS_LIST,
+  canalRecomendado,
   classificarFila,
   diasDesde,
   filaDe,
   formatData,
+  leadAbordavelHoje,
   prontoParaAbordagem,
+  scoreContatoHoje,
   statusColor,
   temCanalContato,
   type Fila,
@@ -120,6 +123,7 @@ function Leads() {
   const salvarVisao = useMutation({
     mutationFn: (nome: string) =>
       criarVisao(nome, {
+        fila,
         aderencia,
         segmento,
         status,
@@ -245,7 +249,41 @@ function Leads() {
     return acc;
   }, [leads]);
 
-  function proximos20() {
+  const abordaveisOrdenados = useMemo(
+    () =>
+      leads
+        .filter((l) => leadAbordavelHoje(l))
+        .sort((a, b) => scoreContatoHoje(b) - scoreContatoHoje(a)),
+    [leads],
+  );
+  const contatosHoje = abordaveisOrdenados.slice(0, 20);
+  const faltamParaMeta = Math.max(0, 20 - contatosHoje.length);
+
+  function limparFiltrosDaRotina() {
+    setFila("todas");
+    setAderencia("todas");
+    setSegmento("todos");
+    setStatus("todos");
+    setPrioridade("todas");
+    setSinal("todos");
+    setCanal("todos");
+    setFollowup("todos");
+    setSomenteProntos(false);
+    setBusca("");
+    setAgrupar(false);
+  }
+
+  function abrirContatosHoje() {
+    if (!contatosHoje.length) {
+      toast.info("Ainda não há leads A/B completos para abordagem.");
+      return;
+    }
+    limparFiltrosDaRotina();
+    setEnriquecer(new Set(contatosHoje.map((l) => l.id)));
+    toast.success(`${contatosHoje.length} contatos prontos na rotina de hoje.`);
+  }
+
+  function proximosParaPesquisa() {
     const candidatos = leads
       .filter((l) => filaDe(l) === "C" && l.status !== "Sem fit / perdido")
       .sort((a, b) => {
@@ -255,14 +293,15 @@ function Leads() {
         if (dados(a) !== dados(b)) return dados(a) - dados(b);
         return (a.empresa ?? "").localeCompare(b.empresa ?? "", "pt-BR");
       })
-      .slice(0, 20);
+      .slice(0, 30);
     if (!candidatos.length) {
-      toast.info("Nenhum lead da Fila C disponível para enriquecer.");
+      toast.info("Nenhum lead da Fila C disponível para pesquisar.");
       return;
     }
+    limparFiltrosDaRotina();
     setEnriquecer(new Set(candidatos.map((l) => l.id)));
     setFila("C");
-    toast.success(`${candidatos.length} leads da Fila C na visão de enriquecimento.`);
+    toast.success(`${candidatos.length} leads na fila de pesquisa para repor o estoque A/B.`);
   }
 
   const grupos = useMemo(() => {
@@ -330,6 +369,8 @@ function Leads() {
   }
 
   function aplicarVisao(filtros: Record<string, unknown>) {
+    setEnriquecer(null);
+    setFila(((filtros["fila"] as string) ?? "todas") as "todas" | Fila);
     setAderencia((filtros["aderencia"] as string) ?? "todas");
     setSegmento((filtros["segmento"] as string) ?? "todos");
     setStatus((filtros["status"] as string) ?? "todos");
@@ -394,6 +435,31 @@ function Leads() {
             </ul>
           </section>
         ) : null}
+
+        <section className="rounded-md border border-primary/15 bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="label-eyebrow">Rotina comercial</p>
+              <h2 className="mt-1 font-display text-2xl text-primary">Contatos de hoje</h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {contatosHoje.length} lead{contatosHoje.length === 1 ? "" : "s"} A/B com decisor,
+                canal e contexto prontos para abordagem.
+                {faltamParaMeta > 0
+                  ? ` Faltam ${faltamParaMeta} para completar a meta de 20 — a reposição vem da pesquisa da Fila C.`
+                  : " Estoque suficiente para a meta de 20 contatos."}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={abrirContatosHoje} disabled={!contatosHoje.length}>
+                Abrir contatos de hoje ({contatosHoje.length})
+              </Button>
+              <Button variant="outline" onClick={proximosParaPesquisa}>
+                Repor estoque · pesquisar
+              </Button>
+            </div>
+          </div>
+        </section>
+
         <div className="flex flex-wrap items-center gap-3 rounded-md border bg-card p-4">
           <Input
             value={busca}
@@ -551,17 +617,15 @@ function Leads() {
               <span className="font-display text-lg text-primary">{contagemFilas[f]}</span>
             </button>
           ))}
-          <Button variant="outline" size="sm" className="ml-auto" onClick={proximos20}>
-            Próximos 20 para enriquecer
-          </Button>
+          <span className="ml-auto text-xs text-muted-foreground">
+            A e B formam o estoque comercial; C é matéria-prima para pesquisa.
+          </span>
           {enriquecer ? (
             <Button variant="ghost" size="sm" onClick={() => setEnriquecer(null)}>
               Limpar visão ({enriquecer.size})
             </Button>
           ) : null}
         </section>
-
-
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="label-eyebrow">Visões</span>
@@ -695,6 +759,11 @@ function Leads() {
                               <span className="block text-xs text-muted-foreground">
                                 {l.categoria ?? "—"}
                               </span>
+                              {l.nome_decisor ? (
+                                <span className="mt-1 block text-[11px] text-muted-foreground">
+                                  {l.nome_decisor} · {canalRecomendado(l)}
+                                </span>
+                              ) : null}
                               {prontoParaAbordagem(l) ? (
                                 <span className="mt-1 inline-block text-[10px] font-medium uppercase tracking-wide text-[#4C7A52]">
                                   pronto para abordagem
