@@ -515,7 +515,19 @@ function Leads() {
             <thead>
               <tr className="border-b">
                 <th className="px-3 py-2.5 text-left">
-                  <span className="label-eyebrow">Empresa</span>
+                  <button
+                    className="label-eyebrow hover:text-primary"
+                    onClick={() =>
+                      setOrdem((o) =>
+                        o.campo === "empresa"
+                          ? { campo: "empresa", dir: o.dir === "asc" ? "desc" : "asc" }
+                          : { campo: "empresa", dir: "asc" },
+                      )
+                    }
+                  >
+                    Empresa
+                    {ordem.campo === "empresa" ? (ordem.dir === "asc" ? " ↑" : " ↓") : ""}
+                  </button>
                 </th>
                 <th className="px-3 py-2.5 text-left">
                   <span className="label-eyebrow" title="Fila derivada de fit e sinal">
