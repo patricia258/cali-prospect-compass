@@ -108,6 +108,7 @@ function Leads() {
   const [ordem, setOrdem] = useState<Ordem>({ campo: "atualizado_em", dir: "desc" });
   const [aberto, setAberto] = useState<Lead | null>(null);
   const [importando, setImportando] = useState(false);
+  const [paginaContatos, setPaginaContatos] = useState(0);
 
   const hoje = new Date().toISOString().slice(0, 10);
   const emSeteDias = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
@@ -256,7 +257,10 @@ function Leads() {
         .sort((a, b) => scoreContatoHoje(b) - scoreContatoHoje(a)),
     [leads],
   );
-  const contatosHoje = abordaveisOrdenados.slice(0, 20);
+  const totalPaginasContatos = Math.max(1, Math.ceil(abordaveisOrdenados.length / 20));
+  const paginaAtualContatos = paginaContatos % totalPaginasContatos;
+  const inicioContatos = paginaAtualContatos * 20;
+  const contatosHoje = abordaveisOrdenados.slice(inicioContatos, inicioContatos + 20);
   const faltamParaMeta = Math.max(0, 20 - contatosHoje.length);
 
   function limparFiltrosDaRotina() {
@@ -280,7 +284,8 @@ function Leads() {
     }
     limparFiltrosDaRotina();
     setEnriquecer(new Set(contatosHoje.map((l) => l.id)));
-    toast.success(`${contatosHoje.length} contatos prontos na rotina de hoje.`);
+    setPaginaContatos((paginaAtualContatos + 1) % totalPaginasContatos);
+    toast.success(`${contatosHoje.length} contatos abertos · lote ${paginaAtualContatos + 1} de ${totalPaginasContatos}.`);
   }
 
   function proximosParaPesquisa() {
@@ -451,7 +456,7 @@ function Leads() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={abrirContatosHoje} disabled={!contatosHoje.length}>
-                Abrir contatos de hoje ({contatosHoje.length})
+                Abrir próximos contatos ({contatosHoje.length})
               </Button>
               <Button variant="outline" onClick={proximosParaPesquisa}>
                 Repor estoque · pesquisar
