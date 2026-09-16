@@ -455,7 +455,7 @@ function Leads() {
                 {contatosHoje.length} lead{contatosHoje.length === 1 ? "" : "s"} A/B com decisor,
                 canal e contexto prontos para abordagem.
                 {faltamParaMeta > 0
-                  ? ` Faltam ${faltamParaMeta} para completar a meta de 20 — a reposição vem da pesquisa da Fila C.`
+                  ? ` Faltam ${faltamParaMeta} para completar a meta de 30 — a reposição vem da pesquisa da Fila C.`
                   : " Estoque suficiente para a meta de 30 contatos."}
               </p>
             </div>
