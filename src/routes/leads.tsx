@@ -250,18 +250,23 @@ function Leads() {
     return acc;
   }, [leads]);
 
-  const abordaveisOrdenados = useMemo(
-    () =>
-      leads
-        .filter((l) => leadAbordavelHoje(l))
-        .sort((a, b) => scoreContatoHoje(b) - scoreContatoHoje(a)),
-    [leads],
-  );
-  const totalPaginasContatos = Math.max(1, Math.ceil(abordaveisOrdenados.length / 20));
+  const abordaveisOrdenados = useMemo(() => {
+    const tagSelecaoHoje = `selecao-dia-${hoje}`;
+    const selecionadoHoje = (lead: Lead) => (lead.tags?.includes(tagSelecaoHoje) ? 1 : 0);
+
+    return leads
+      .filter((l) => leadAbordavelHoje(l))
+      .sort(
+        (a, b) =>
+          selecionadoHoje(b) - selecionadoHoje(a) ||
+          scoreContatoHoje(b) - scoreContatoHoje(a),
+      );
+  }, [leads, hoje]);
+  const totalPaginasContatos = Math.max(1, Math.ceil(abordaveisOrdenados.length / 30));
   const paginaAtualContatos = paginaContatos % totalPaginasContatos;
-  const inicioContatos = paginaAtualContatos * 20;
-  const contatosHoje = abordaveisOrdenados.slice(inicioContatos, inicioContatos + 20);
-  const faltamParaMeta = Math.max(0, 20 - contatosHoje.length);
+  const inicioContatos = paginaAtualContatos * 30;
+  const contatosHoje = abordaveisOrdenados.slice(inicioContatos, inicioContatos + 30);
+  const faltamParaMeta = Math.max(0, 30 - contatosHoje.length);
 
   function limparFiltrosDaRotina() {
     setFila("todas");
@@ -451,12 +456,12 @@ function Leads() {
                 canal e contexto prontos para abordagem.
                 {faltamParaMeta > 0
                   ? ` Faltam ${faltamParaMeta} para completar a meta de 20 — a reposição vem da pesquisa da Fila C.`
-                  : " Estoque suficiente para a meta de 20 contatos."}
+                  : " Estoque suficiente para a meta de 30 contatos."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={abrirContatosHoje} disabled={!contatosHoje.length}>
-                Abrir próximos contatos ({contatosHoje.length})
+                Abrir contatos de hoje ({contatosHoje.length})
               </Button>
               <Button variant="outline" onClick={proximosParaPesquisa}>
                 Repor estoque · pesquisar
