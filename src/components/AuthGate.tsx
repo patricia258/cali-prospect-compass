@@ -150,7 +150,10 @@ function SignIn() {
           <span className="h-px flex-1 bg-border" />
         </div>
 
-        <Button variant="outline" className="w-full" onClick={google}>
+        <Button variant="outline" className="w-full" onClick={enviarLinkAcesso} disabled={busy}>
+          Enviar link de acesso para meu e-mail
+        </Button>
+        <Button variant="ghost" className="mt-2 w-full" onClick={google}>
           Entrar com Google
         </Button>
       </div>
