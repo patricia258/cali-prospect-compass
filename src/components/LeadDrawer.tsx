@@ -204,6 +204,10 @@ export function LeadDrawer({
       let sucesso = false;
       try {
         const atualizado = await atualizarLead(base, patch);
+        qc.setQueryData<Lead[]>(["leads"], (atuais) =>
+          atuais?.map((item) => (item.id === atualizado.id ? atualizado : item)),
+        );
+        void qc.invalidateQueries({ queryKey: ["leads"] });
         if (savedLeadRef.current?.id !== leadId) return true;
 
         savedLeadRef.current = atualizado;
@@ -211,9 +215,6 @@ export function LeadDrawer({
         draftRef.current = proximoDraft;
         setDraft(proximoDraft);
         setSaveState(Object.keys(pendingRef.current).length ? "pending" : "saved");
-        qc.setQueryData<Lead[]>(["leads"], (atuais) =>
-          atuais?.map((item) => (item.id === atualizado.id ? atualizado : item)),
-        );
         if (patch.status || patch.notas !== undefined) {
           void qc.invalidateQueries({ queryKey: ["eventos", leadId] });
         }

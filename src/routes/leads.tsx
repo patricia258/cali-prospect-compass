@@ -84,7 +84,23 @@ const COLUNAS: { campo: keyof Lead; label: string; className?: string }[] = [
 
 function Leads() {
   const qc = useQueryClient();
-  const { data: leads = [], isLoading } = useQuery({ queryKey: ["leads"], queryFn: fetchLeads });
+  const { data: leads = [], isLoading } = useQuery({
+    queryKey: ["leads"],
+    queryFn: fetchLeads,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const datasPesquisa = useMemo(() => {
+    const datas = new Set<string>();
+    for (const l of leads) {
+      for (const t of l.tags ?? []) {
+        const m = /^pesquisa-dia-(\d{4}-\d{2}-\d{2})$/.exec(t);
+        if (m) datas.add(m[1]);
+      }
+    }
+    return [...datas].sort().reverse();
+  }, [leads]);
+  const [pesquisa, setPesquisa] = useState("todas");
   const { data: visoes = [] } = useQuery({ queryKey: ["visoes"], queryFn: fetchVisoes });
   const { data: excluidos = [] } = useQuery({
     queryKey: ["leads-excluidos"],
@@ -132,6 +148,7 @@ function Leads() {
         sinal,
         canal,
         followup,
+        pesquisa,
         somenteProntos,
         busca,
       }),
@@ -167,6 +184,7 @@ function Leads() {
       if (status !== "todos" && l.status !== status) return false;
       if (prioridade !== "todas" && l.prioridade !== prioridade) return false;
       if (sinal !== "todos" && (l.sinal_compra || "Sem sinal forte") !== sinal) return false;
+      if (pesquisa !== "todas" && !(l.tags ?? []).includes(`pesquisa-dia-${pesquisa}`)) return false;
       if (somenteProntos && !prontoParaAbordagem(l)) return false;
       if (followup === "vencido" && !(l.proximo_followup && l.proximo_followup < hoje))
         return false;
@@ -238,6 +256,7 @@ function Leads() {
     sinal,
     canal,
     followup,
+    pesquisa,
     somenteProntos,
     ordem,
     hoje,
@@ -277,6 +296,7 @@ function Leads() {
     setSinal("todos");
     setCanal("todos");
     setFollowup("todos");
+    setPesquisa("todas");
     setSomenteProntos(false);
     setBusca("");
     setAgrupar(false);
@@ -388,6 +408,7 @@ function Leads() {
     setSinal((filtros["sinal"] as string) ?? "todos");
     setCanal((filtros["canal"] as string) ?? "todos");
     setFollowup((filtros["followup"] as string) ?? "todos");
+    setPesquisa((filtros["pesquisa"] as string) ?? "todas");
     setSomenteProntos(Boolean(filtros["somenteProntos"]));
     setBusca((filtros["busca"] as string) ?? "");
   }
