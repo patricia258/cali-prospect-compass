@@ -79,8 +79,20 @@ const COLUNAS: { campo: keyof Lead; label: string; className?: string }[] = [
   { campo: "cidade", label: "Cidade" },
   { campo: "status", label: "Status" },
   { campo: "proximo_followup", label: "Follow-up" },
+  { campo: "criado_em", label: "Entrada" },
   { campo: "atualizado_em", label: "Atualizado" },
 ];
+
+/** Data do lote mais recente em que o lead entrou (tag pesquisa/seleção do dia ou data de criação). */
+function dataLote(lead: { tags?: string[] | null; criado_em?: string | null }) {
+  let melhor = (lead.criado_em ?? "").slice(0, 10);
+  for (const t of lead.tags ?? []) {
+    const m = /^(?:pesquisa|selecao)-dia-(\d{4}-\d{2}-\d{2})$/.exec(t);
+    const data = m?.[1];
+    if (data && data > melhor) melhor = data;
+  }
+  return melhor;
+}
 
 function Leads() {
   const qc = useQueryClient();
@@ -121,12 +133,12 @@ function Leads() {
   const [agrupar, setAgrupar] = useState(false);
   const [mostrarLixeira, setMostrarLixeira] = useState(false);
   const [gruposFechados, setGruposFechados] = useState<Set<string>>(new Set());
-  const [ordem, setOrdem] = useState<Ordem>({ campo: "atualizado_em", dir: "desc" });
+  const [ordem, setOrdem] = useState<Ordem>({ campo: "criado_em", dir: "desc" });
   const [aberto, setAberto] = useState<Lead | null>(null);
   const [importando, setImportando] = useState(false);
   const [paginaContatos, setPaginaContatos] = useState(0);
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
   const emSeteDias = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
   const novo = useMutation({
@@ -278,6 +290,7 @@ function Leads() {
       .sort(
         (a, b) =>
           selecionadoHoje(b) - selecionadoHoje(a) ||
+          dataLote(b).localeCompare(dataLote(a)) ||
           scoreContatoHoje(b) - scoreContatoHoje(a),
       );
   }, [leads, hoje]);
@@ -604,6 +617,20 @@ function Leads() {
               <SelectItem value="sem_linkedin">Sem LinkedIn</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={pesquisa} onValueChange={setPesquisa}>
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Data da pesquisa" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as datas de pesquisa</SelectItem>
+              {datasPesquisa.map((d) => (
+                <SelectItem key={d} value={d}>
+                  Pesquisa de {d.split("-").reverse().join("/")}
+                  {d === hoje ? " (hoje)" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={followup} onValueChange={setFollowup}>
             <SelectTrigger className="w-44">
               <SelectValue placeholder="Follow-up" />
@@ -827,6 +854,9 @@ function Leads() {
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                              {formatData(l.criado_em)}
                             </td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground">
                               {formatData(l.atualizado_em)}
