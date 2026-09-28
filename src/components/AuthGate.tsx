@@ -87,6 +87,18 @@ function SignIn() {
     setBusy(false);
   }
 
+  async function enviarLinkAcesso() {
+    const emailAcesso = "patricia@calirh.com";
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: emailAcesso,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setBusy(false);
+    if (error) toast.error("Não foi possível enviar o link de acesso: " + error.message);
+    else toast.success("Link de acesso enviado para patricia@calirh.com.");
+  }
+
   async function google() {
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
