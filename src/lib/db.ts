@@ -80,13 +80,6 @@ export function automacaoPorStatus(lead: Lead, novoStatus: string, agora = new D
         proximo_followup: proximosDiasUteis(1),
         proximo_passo: "Identificar um sinal ou definir o ângulo de abordagem",
       };
-    case "Sinal identificado":
-      return {
-        ...patch,
-        cadencia_status: "Não iniciada",
-        proximo_followup: proximosDiasUteis(1),
-        proximo_passo: "Preparar e enviar a primeira abordagem",
-      };
     case "Abordagem enviada":
       return {
         ...patch,
@@ -148,6 +141,27 @@ export function automacaoPorStatus(lead: Lead, novoStatus: string, agora = new D
         cadencia_status: "Concluída",
         proximo_followup: proximosDiasUteis(5),
         proximo_passo: "Realizar o próximo passo do onboarding",
+      };
+    case "Standby":
+      return {
+        ...patch,
+        cadencia_status: "Pausada por resposta",
+        proximo_followup: proximosDiasUteis(20),
+        proximo_passo: "Retomar o contato depois da pausa",
+      };
+    case "Esfriou":
+      return {
+        ...patch,
+        cadencia_status: "Concluída",
+        proximo_followup: proximosDiasUteis(60),
+        proximo_passo: "Avaliar se vale reabrir o contato",
+      };
+    case "Não alinhado":
+      return {
+        ...patch,
+        cadencia_status: "Concluída",
+        proximo_followup: null,
+        proximo_passo: "Encerrado · não alinhado ao ICP",
       };
     case "Sem fit / perdido":
       return {

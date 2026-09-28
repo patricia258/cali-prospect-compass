@@ -59,11 +59,6 @@ function Kanban() {
               onDrop={() => {
                 const lead = leads.find((l) => l.id === arrastando);
                 setArrastando(null);
-                if (lead && status === "Sem fit / perdido" && !lead.perdido_motivo) {
-                  setAberto(lead);
-                  toast.info("Abra o status “Sem fit / perdido” na ficha e informe o motivo.");
-                  return;
-                }
                 if (lead && lead.status !== status) mover.mutate({ lead, status });
               }}
               className={

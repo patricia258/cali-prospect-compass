@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { fetchLeads, type Lead } from "@/lib/db";
 import {
   FUNIL,
+  STATUS_ENCERRADOS,
+  STATUS_PAUSADOS,
   SINAIS_QUENTES,
   diasDesde,
   formatData,
@@ -80,7 +82,8 @@ function Painel() {
           !l.respondeu_em &&
           diasDesde(l.atualizado_em) >= 10 &&
           l.status !== "Cliente" &&
-          l.status !== "Sem fit / perdido",
+          !STATUS_ENCERRADOS.has(l.status) &&
+          !STATUS_PAUSADOS.has(l.status),
       ),
       abordados,
       responderam,

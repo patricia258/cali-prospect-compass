@@ -2,7 +2,6 @@ export const STATUS_LIST = [
   "Novo lead",
   "Enriquecendo dados",
   "Qualificado",
-  "Sinal identificado",
   "Abordagem enviada",
   "Em cadência",
   "Conversa aberta",
@@ -11,8 +10,20 @@ export const STATUS_LIST = [
   "Proposta enviada",
   "Negociação",
   "Cliente",
+  "Standby",
+  "Esfriou",
+  "Não alinhado",
   "Sem fit / perdido",
 ] as const;
+
+/**
+ * Status que tiram o lead da rotina de abordagem. Nenhum deles exige justificativa.
+ * "Não alinhado" e "Sem fit / perdido" alimentam o aprendizado da pesquisa diária
+ * (view public.v_padroes_nao_alinhados): segmento, porte e região desses leads
+ * indicam o que NÃO pesquisar de novo.
+ */
+export const STATUS_ENCERRADOS = new Set(["Esfriou", "Não alinhado", "Sem fit / perdido"]);
+export const STATUS_PAUSADOS = new Set(["Standby"]);
 
 export type Status = (typeof STATUS_LIST)[number];
 
@@ -31,7 +42,6 @@ export const STATUS_COLORS: Record<string, string | null> = {
   "Novo lead": "#6B6259",
   "Enriquecendo dados": "#7A6A57",
   Qualificado: "#9A6B18",
-  "Sinal identificado": "#B07406",
   "Abordagem enviada": "#B45309",
   "Em cadência": "#C2410C",
   "Conversa aberta": "#A16207",
@@ -40,6 +50,9 @@ export const STATUS_COLORS: Record<string, string | null> = {
   "Proposta enviada": "#15803D",
   Negociação: "#0F766E",
   Cliente: "#166534",
+  Standby: "#64748B",
+  Esfriou: "#7C6F64",
+  "Não alinhado": "#8B3A3A",
   "Sem fit / perdido": "#991B1B",
 };
 
@@ -124,8 +137,9 @@ const STATUS_ANTERIOR_PARA_ATUAL: Record<string, string> = {
   "Reunião agendada": "Diagnóstico agendado",
   "Chamada agendada": "Diagnóstico agendado",
   "Reunião realizada": "Mapa de People enviado/realizado",
-  "Em standby": "Em cadência",
-  Desalinhado: "Sem fit / perdido",
+  "Sinal identificado": "Qualificado",
+  "Em standby": "Standby",
+  Desalinhado: "Não alinhado",
   Declinou: "Sem fit / perdido",
   "Sem interesse": "Sem fit / perdido",
 };
@@ -370,8 +384,8 @@ export function sinalVerificado(lead: LeadFila) {
 export function classificarFila(lead: LeadFila): { fila: Fila; motivo: string } {
   const fit = typeof lead.icp_fit === "number" ? lead.icp_fit : null;
 
-  if (lead.status === "Sem fit / perdido") {
-    return { fila: "C", motivo: "C · encerrado como sem fit / perdido" };
+  if (STATUS_ENCERRADOS.has(lead.status ?? "")) {
+    return { fila: "C", motivo: `C · encerrado como ${lead.status?.toLowerCase()}` };
   }
   if (fit === null) {
     return { fila: "C", motivo: "C · ainda sem fit validado" };
@@ -506,7 +520,6 @@ const STATUS_PRE_CONTATO = new Set([
   "Novo lead",
   "Enriquecendo dados",
   "Qualificado",
-  "Sinal identificado",
 ]);
 
 export function leadAbordavelHoje(lead: LeadAbordagem) {

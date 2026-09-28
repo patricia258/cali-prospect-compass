@@ -27,7 +27,9 @@ import {
   PRIORIDADES,
   SEGMENTOS,
   SINAIS_COMPRA,
+  STATUS_ENCERRADOS,
   STATUS_LIST,
+  STATUS_PAUSADOS,
   canalRecomendado,
   classificarFila,
   diasDesde,
@@ -107,7 +109,7 @@ function Leads() {
     for (const l of leads) {
       for (const t of l.tags ?? []) {
         const m = /^pesquisa-dia-(\d{4}-\d{2}-\d{2})$/.exec(t);
-        if (m) datas.add(m[1]);
+        if (m?.[1]) datas.add(m[1]);
       }
     }
     return [...datas].sort().reverse();
@@ -328,7 +330,7 @@ function Leads() {
 
   function proximosParaPesquisa() {
     const candidatos = leads
-      .filter((l) => filaDe(l) === "C" && l.status !== "Sem fit / perdido")
+      .filter((l) => filaDe(l) === "C" && !STATUS_ENCERRADOS.has(l.status) && !STATUS_PAUSADOS.has(l.status))
       .sort((a, b) => {
         const novo = (l: Lead) => (l.status === "Novo lead" ? 0 : 1);
         if (novo(a) !== novo(b)) return novo(a) - novo(b);

@@ -41,6 +41,7 @@ import {
   PRIORIDADES,
   SEGMENTOS,
   SINAIS_COMPRA,
+  STATUS_ENCERRADOS,
   STATUS_LIST,
   WHATSAPP_OPCOES,
   classificarFila,
@@ -191,10 +192,6 @@ export function LeadDrawer({
     if (!base || Object.keys(patch).length === 0) return true;
 
     const resultado = { ...base, ...patch };
-    if (resultado.status === "Sem fit / perdido" && !resultado.perdido_motivo?.trim()) {
-      setSaveState("pending");
-      return false;
-    }
 
     pendingRef.current = {};
     setSaveState("saving");
@@ -387,9 +384,6 @@ export function LeadDrawer({
         }
         void flushAutoSave().then((salvou) => {
           if (salvou) onOpenChange(false);
-          else if (draftRef.current?.status === "Sem fit / perdido") {
-            toast.error("Informe o motivo da perda antes de fechar a ficha.");
-          }
         });
       }}
     >
@@ -776,9 +770,9 @@ export function LeadDrawer({
               />
             </div>
 
-            {draft.status === "Sem fit / perdido" && (
+            {STATUS_ENCERRADOS.has(draft.status) && (
               <div className="space-y-1.5 rounded-md border border-destructive/30 bg-destructive/5 p-4">
-                <Label>Motivo da perda · obrigatório</Label>
+                <Label>Motivo · opcional</Label>
                 <Textarea
                   rows={3}
                   value={draft.perdido_motivo ?? ""}
