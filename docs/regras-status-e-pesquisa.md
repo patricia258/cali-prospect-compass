@@ -38,3 +38,21 @@ Removidos: "Sinal identificado", "Enriquecendo dados", "Negociação", "Standby"
 5. Criar, em `visoes_salvas`, a visão do dia chamada `Leads DD/MM` com
    `filtros = {"pesquisa": "AAAA-MM-DD"}` — é ela que aparece na linha "Visões" da tela de leads.
 6. Preencher `telefone` (da empresa ou do decisor, com fonte) em todos os leads entregues.
+7. Leads da base em Esfriou, Não alinhado ou Sem fit / perdido podem ganhar LinkedIn/decisor
+   se campos estiverem vazios (tag `revisar-requalificar`), mas **o status nunca é alterado** — quem
+   decide reabrir é a Patrícia.
+
+## Aprendizados do ICP (atualizado 29/09/2026)
+
+A view `v_padroes_nao_alinhados` agora conta **Convite enviado em diante** como aproveitado,
+tem coluna própria para **Esfriou** e agrupa o porte em faixas (1-10, 11-50, 51-200, 201-500, 500+).
+
+- Segmento B (tecnologia/marketing) é o que mais converte: ~79 aproveitados × 12 descartes.
+- Segmento A (indústria) converte menos: ~44 × 30. Priorizar indústrias com sinal claro
+  (crescimento, sucessão, expansão) e decisor no topo (CEO/fundador), não diretor comercial.
+- Porte 11-50 é o melhor (41 × 10); 51-200 tem descarte alto (19 × 12).
+- Descartados como Não alinhado em 29/09: empresa sendo vendida/controlada por grupo (SPRO),
+  indústria média tradicional com decisor comercial (Cabopec), empresa pós-sucessão com
+  hardware/governo (Dataprom), agência de SEO (liveSEO), decisor que saiu (LogPlace).
+  Evitar: empresas em processo de aquisição ou controladas por grupos de fora do PR.
+- Esfriou em 29/09: Centro Médico Santo Antônio, Direct Marketing, First Class Imóveis.
