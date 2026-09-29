@@ -1,16 +1,14 @@
 export const STATUS_LIST = [
   "Novo lead",
-  "Enriquecendo dados",
   "Qualificado",
+  "Convite enviado",
   "Abordagem enviada",
   "Em cadência",
   "Conversa aberta",
   "Diagnóstico agendado",
   "Mapa de People enviado/realizado",
   "Proposta enviada",
-  "Negociação",
   "Cliente",
-  "Standby",
   "Esfriou",
   "Não alinhado",
   "Sem fit / perdido",
@@ -23,7 +21,8 @@ export const STATUS_LIST = [
  * indicam o que NÃO pesquisar de novo.
  */
 export const STATUS_ENCERRADOS = new Set(["Esfriou", "Não alinhado", "Sem fit / perdido"]);
-export const STATUS_PAUSADOS = new Set(["Standby"]);
+/** Convite de conexão no LinkedIn enviado e ainda não aceito: não conta como contato feito. */
+export const STATUS_PAUSADOS = new Set(["Convite enviado"]);
 
 export type Status = (typeof STATUS_LIST)[number];
 
@@ -40,17 +39,15 @@ export type Status = (typeof STATUS_LIST)[number];
  */
 export const STATUS_COLORS: Record<string, string | null> = {
   "Novo lead": "#6B6259",
-  "Enriquecendo dados": "#7A6A57",
   Qualificado: "#9A6B18",
+  "Convite enviado": "#8A6D3B",
   "Abordagem enviada": "#B45309",
   "Em cadência": "#C2410C",
   "Conversa aberta": "#A16207",
   "Diagnóstico agendado": "#2F6F4E",
   "Mapa de People enviado/realizado": "#1F6F5C",
   "Proposta enviada": "#15803D",
-  Negociação: "#0F766E",
   Cliente: "#166534",
-  Standby: "#64748B",
   Esfriou: "#7C6F64",
   "Não alinhado": "#8B3A3A",
   "Sem fit / perdido": "#991B1B",
@@ -138,7 +135,10 @@ const STATUS_ANTERIOR_PARA_ATUAL: Record<string, string> = {
   "Chamada agendada": "Diagnóstico agendado",
   "Reunião realizada": "Mapa de People enviado/realizado",
   "Sinal identificado": "Qualificado",
-  "Em standby": "Standby",
+  "Em standby": "Esfriou",
+  Standby: "Esfriou",
+  "Enriquecendo dados": "Novo lead",
+  Negociação: "Proposta enviada",
   Desalinhado: "Não alinhado",
   Declinou: "Sem fit / perdido",
   "Sem interesse": "Sem fit / perdido",
@@ -516,11 +516,7 @@ export function planoAbordagem(lead: LeadAbordagem) {
   };
 }
 
-const STATUS_PRE_CONTATO = new Set([
-  "Novo lead",
-  "Enriquecendo dados",
-  "Qualificado",
-]);
+const STATUS_PRE_CONTATO = new Set(["Novo lead", "Qualificado"]);
 
 export function leadAbordavelHoje(lead: LeadAbordagem) {
   const fila = filaDe(lead);

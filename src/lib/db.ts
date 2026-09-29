@@ -142,12 +142,12 @@ export function automacaoPorStatus(lead: Lead, novoStatus: string, agora = new D
         proximo_followup: proximosDiasUteis(5),
         proximo_passo: "Realizar o próximo passo do onboarding",
       };
-    case "Standby":
+    case "Convite enviado":
       return {
         ...patch,
-        cadencia_status: "Pausada por resposta",
-        proximo_followup: proximosDiasUteis(20),
-        proximo_passo: "Retomar o contato depois da pausa",
+        cadencia_status: "Não iniciada",
+        proximo_followup: proximosDiasUteis(5),
+        proximo_passo: "Ver se o convite do LinkedIn foi aceito e enviar a primeira mensagem",
       };
     case "Esfriou":
       return {
