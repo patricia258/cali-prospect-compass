@@ -132,6 +132,7 @@ function Leads() {
   const [canal, setCanal] = useState("todos");
   const [followup, setFollowup] = useState("todos");
   const [somenteProntos, setSomenteProntos] = useState(false);
+  const [comLinkedinDecisor, setComLinkedinDecisor] = useState(false);
   const [agrupar, setAgrupar] = useState(false);
   const [mostrarLixeira, setMostrarLixeira] = useState(false);
   const [gruposFechados, setGruposFechados] = useState<Set<string>>(new Set());
@@ -164,6 +165,7 @@ function Leads() {
         followup,
         pesquisa,
         somenteProntos,
+        comLinkedinDecisor,
         busca,
       }),
     onSuccess: () => {
@@ -200,6 +202,7 @@ function Leads() {
       if (sinal !== "todos" && (l.sinal_compra || "Sem sinal forte") !== sinal) return false;
       if (pesquisa !== "todas" && !(l.tags ?? []).includes(`pesquisa-dia-${pesquisa}`)) return false;
       if (somenteProntos && !prontoParaAbordagem(l)) return false;
+      if (comLinkedinDecisor && !l.linkedin_decisor) return false;
       if (followup === "vencido" && !(l.proximo_followup && l.proximo_followup < hoje))
         return false;
       if (followup === "hoje" && l.proximo_followup !== hoje) return false;
@@ -221,6 +224,7 @@ function Leads() {
         com_linkedin: temLinkedIn,
         sem_linkedin: !temLinkedIn,
         sem_decisor: !l.nome_decisor,
+        com_linkedin_decisor: Boolean(l.linkedin_decisor),
         sem_linkedin_decisor: !l.linkedin_decisor,
         sem_sinal_verificado:
           !l.sinal_compra ||
@@ -272,6 +276,7 @@ function Leads() {
     followup,
     pesquisa,
     somenteProntos,
+    comLinkedinDecisor,
     ordem,
     hoje,
     emSeteDias,
@@ -425,6 +430,7 @@ function Leads() {
     setFollowup((filtros["followup"] as string) ?? "todos");
     setPesquisa((filtros["pesquisa"] as string) ?? "todas");
     setSomenteProntos(Boolean(filtros["somenteProntos"]));
+    setComLinkedinDecisor(Boolean(filtros["comLinkedinDecisor"]));
     setBusca((filtros["busca"] as string) ?? "");
   }
 
@@ -603,6 +609,7 @@ function Leads() {
             <SelectContent>
               <SelectItem value="todos">Todos os dados</SelectItem>
               <SelectItem value="sem_decisor">Sem decisor</SelectItem>
+              <SelectItem value="com_linkedin_decisor">Tem LinkedIn do decisor</SelectItem>
               <SelectItem value="sem_linkedin_decisor">Sem LinkedIn do decisor</SelectItem>
               <SelectItem value="sem_sinal_verificado">Sem sinal verificado</SelectItem>
               <SelectItem value="algum_canal">Tem algum canal</SelectItem>
@@ -648,6 +655,16 @@ function Leads() {
             <Switch id="prontos" checked={somenteProntos} onCheckedChange={setSomenteProntos} />
             <Label htmlFor="prontos" className="text-xs">
               Prontos para abordagem
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="com-linkedin"
+              checked={comLinkedinDecisor}
+              onCheckedChange={setComLinkedinDecisor}
+            />
+            <Label htmlFor="com-linkedin" className="text-xs">
+              Com LinkedIn do decisor
             </Label>
           </div>
           <div className="flex items-center gap-2">
