@@ -1,11 +1,25 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { LeadDrawer } from "@/components/LeadDrawer";
-import { STATUS_LIST, statusColor } from "@/lib/cali";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DIAS_ESFRIANDO,
+  STATUS_LIST,
+  chaveAntiguidade,
+  diasDesde,
+  statusColor,
+  textoAntiguidade,
+} from "@/lib/cali";
 import { atualizarLead, fetchLeads, type Lead } from "@/lib/db";
 
 export const Route = createFileRoute("/kanban")({
@@ -32,6 +46,24 @@ function Kanban() {
   const [arrastando, setArrastando] = useState<string | null>(null);
   const [aberto, setAberto] = useState<Lead | null>(null);
   const [colunasFechadas, setColunasFechadas] = useState<Set<string>>(new Set());
+  const [categoria, setCategoria] = useState("todas");
+
+  const categorias = useMemo(() => {
+    const vistas = new Set<string>();
+    for (const l of leads) if (l.categoria) vistas.add(l.categoria);
+    return [...vistas].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [leads]);
+
+  const leadsFiltrados = useMemo(() => {
+    const base = categoria === "todas" ? leads : leads.filter((l) => l.categoria === categoria);
+    return [...base].sort((a, b) => {
+      const va = chaveAntiguidade(a);
+      const vb = chaveAntiguidade(b);
+      if (!va) return 1;
+      if (!vb) return -1;
+      return va.localeCompare(vb);
+    });
+  }, [leads, categoria]);
 
   const mover = useMutation({
     mutationFn: ({ lead, status }: { lead: Lead; status: string }) =>
@@ -46,11 +78,26 @@ function Kanban() {
   return (
     <Shell
       title="Kanban do pipeline"
-      subtitle="Arraste um cartão para mudar o status. Cada movimento fica registrado no histórico do lead."
+      subtitle="Arraste um cartão para mudar o status. Dentro de cada coluna, quem espera há mais tempo aparece primeiro."
+      actions={
+        <Select value={categoria} onValueChange={setCategoria}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as categorias</SelectItem>
+            {categorias.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      }
     >
       <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8">
         {STATUS_LIST.map((status) => {
-          const coluna = leads.filter((l) => l.status === status);
+          const coluna = leadsFiltrados.filter((l) => l.status === status);
           const fechada = colunasFechadas.has(status);
           return (
             <section
@@ -108,6 +155,15 @@ function Kanban() {
                       <p className="text-sm font-medium leading-snug">{lead.empresa}</p>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
                         {lead.categoria ?? "—"} · {lead.cidade ?? "—"}
+                      </p>
+                      <p
+                        className={
+                          diasDesde(chaveAntiguidade(lead)) > DIAS_ESFRIANDO
+                            ? "mt-1 text-xs font-medium text-destructive"
+                            : "mt-1 text-xs text-muted-foreground"
+                        }
+                      >
+                        {textoAntiguidade(lead)}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1">
                         {!lead.segmento && (

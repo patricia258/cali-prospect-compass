@@ -314,6 +314,22 @@ export function diasDesde(iso?: string | null) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
+type LeadAntiguidade = { ultima_interacao?: string | null; criado_em?: string | null };
+
+/** Data que representa "desde quando esse lead espera um próximo passo": a última
+ * interação registrada, ou a entrada do lead quando ele nunca foi contatado. */
+export function chaveAntiguidade(lead: LeadAntiguidade) {
+  return lead.ultima_interacao ?? lead.criado_em ?? null;
+}
+
+export function textoAntiguidade(lead: LeadAntiguidade) {
+  const dias = diasDesde(chaveAntiguidade(lead));
+  const unidade = dias === 1 ? "dia" : "dias";
+  return lead.ultima_interacao
+    ? `Última msg há ${dias} ${unidade}`
+    : `Cadastrado há ${dias} ${unidade} · sem contato`;
+}
+
 export function formatData(iso?: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);

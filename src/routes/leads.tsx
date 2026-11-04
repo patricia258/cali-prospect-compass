@@ -31,6 +31,7 @@ import {
   STATUS_LIST,
   STATUS_PAUSADOS,
   canalRecomendado,
+  chaveAntiguidade,
   classificarFila,
   diasDesde,
   filaDe,
@@ -40,6 +41,7 @@ import {
   scoreContatoHoje,
   statusColor,
   temCanalContato,
+  textoAntiguidade,
   type Fila,
 } from "@/lib/cali";
 import {
@@ -81,6 +83,7 @@ const COLUNAS: { campo: keyof Lead; label: string; className?: string }[] = [
   { campo: "cidade", label: "Cidade" },
   { campo: "status", label: "Status" },
   { campo: "proximo_followup", label: "Follow-up" },
+  { campo: "ultima_interacao", label: "Última msg" },
   { campo: "criado_em", label: "Entrada" },
   { campo: "atualizado_em", label: "Atualizado" },
 ];
@@ -873,6 +876,17 @@ function Leads() {
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs">
+                              <span
+                                className={
+                                  diasDesde(chaveAntiguidade(l)) > DIAS_ESFRIANDO
+                                    ? "font-medium text-destructive"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {textoAntiguidade(l)}
+                              </span>
                             </td>
                             <td className="px-3 py-2.5 text-xs text-muted-foreground">
                               {formatData(l.criado_em)}
