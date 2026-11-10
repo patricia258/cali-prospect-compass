@@ -56,3 +56,12 @@ tem coluna própria para **Esfriou** e agrupa o porte em faixas (1-10, 11-50, 51
   hardware/governo (Dataprom), agência de SEO (liveSEO), decisor que saiu (LogPlace).
   Evitar: empresas em processo de aquisição ou controladas por grupos de fora do PR.
 - Esfriou em 29/09: Centro Médico Santo Antônio, Direct Marketing, First Class Imóveis.
+
+## Proteção absoluta da operação comercial (09/11/2026)
+
+- A pesquisa automática só pode inserir empresas novas ou preencher **campos vazios** de registros em `Novo lead` sem evidência histórica de abordagem. Não pode modificar status, `cadencia_status`, `cadencia_toque`, `primeiro_contato_em`, `respondeu_em`, `ultima_interacao`, `proximo_followup`, `proximo_passo`, anotações comerciais manuais ou outros campos preenchidos pela Patrícia.
+- **O histórico prevalece sobre o status atual.** Mesmo que alguém tenha redefinido um cadastro para `Novo lead`, qualquer evento antigo de convite, mensagem, resposta, chamada, reunião, abordagem ou cadência impede sua seleção automática. Nunca promover duplicatas da mesma empresa sob outro nome.
+- Nunca fazer reset em massa para `Novo lead` por ausência de LinkedIn. A ausência de LinkedIn não apaga contato que realmente aconteceu.
+- Os status `Convite enviado` e `Convite pendente` coexistem: o primeiro registra o envio; o segundo permite acompanhar o convite enquanto aguarda aceite. O status `Call` indica que uma chamada está sendo combinada. Nenhum registro antigo é migrado automaticamente para esses status.
+- A Selbetti (registros `Selbetti Soluções emTecnologia - Curitiba` e `Selbetti Tecnologia`) tem histórico de contato, inclusive resposta em outubro de 2026, e deve ser tratada como **já trabalhada** para fins de prospecção, independentemente do `status` visível. Não alterar seus status sem decisão manual da Patrícia.
+- A rotina diária segue a revisão de 20/10/2026: mínimo de 10 decisores inéditos com LinkedIn pessoal confirmado, desejável 20; não contar já abordados, não mudar seus status.
