@@ -74,7 +74,7 @@ function Painel() {
       prontos: leads.filter((l) => prontoParaAbordagem(l) && !l.primeiro_contato_em),
       enriquecer: leads.filter((l) => !prontoParaAbordagem(l) && !l.primeiro_contato_em),
       conversas: leads.filter(
-        (l) => l.status === "Conversa aberta" || l.status === "Diagnóstico agendado",
+        (l) => l.status === "Conversa aberta" || l.status === "Call" || l.status === "Diagnóstico agendado",
       ),
       esfriando: leads.filter(
         (l) =>
