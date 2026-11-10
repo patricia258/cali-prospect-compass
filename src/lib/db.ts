@@ -104,6 +104,13 @@ export function automacaoPorStatus(lead: Lead, novoStatus: string, agora = new D
         proximo_followup: proximosDiasUteis(2),
         proximo_passo: "Retomar a conversa e combinar o próximo passo",
       };
+    case "Call":
+      return {
+        ...patch,
+        cadencia_status: "Pausada por resposta",
+        proximo_followup: proximosDiasUteis(1),
+        proximo_passo: "Combinar data e horário da call",
+      };
     case "Diagnóstico agendado":
       return {
         ...patch,
@@ -143,6 +150,7 @@ export function automacaoPorStatus(lead: Lead, novoStatus: string, agora = new D
         proximo_passo: "Realizar o próximo passo do onboarding",
       };
     case "Convite enviado":
+    case "Convite pendente":
       return {
         ...patch,
         cadencia_status: "Não iniciada",
