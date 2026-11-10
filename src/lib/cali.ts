@@ -2,9 +2,11 @@ export const STATUS_LIST = [
   "Novo lead",
   "Qualificado",
   "Convite enviado",
+  "Convite pendente",
   "Abordagem enviada",
   "Em cadência",
   "Conversa aberta",
+  "Call",
   "Diagnóstico agendado",
   "Mapa de People enviado/realizado",
   "Proposta enviada",
@@ -22,7 +24,7 @@ export const STATUS_LIST = [
  */
 export const STATUS_ENCERRADOS = new Set(["Esfriou", "Não alinhado", "Sem fit / perdido"]);
 /** Convite de conexão no LinkedIn enviado e ainda não aceito: não conta como contato feito. */
-export const STATUS_PAUSADOS = new Set(["Convite enviado"]);
+export const STATUS_PAUSADOS = new Set(["Convite enviado", "Convite pendente"]);
 
 export type Status = (typeof STATUS_LIST)[number];
 
@@ -41,9 +43,11 @@ export const STATUS_COLORS: Record<string, string | null> = {
   "Novo lead": "#6B6259",
   Qualificado: "#9A6B18",
   "Convite enviado": "#8A6D3B",
+  "Convite pendente": "#A27D45",
   "Abordagem enviada": "#B45309",
   "Em cadência": "#C2410C",
   "Conversa aberta": "#A16207",
+  Call: "#74643A",
   "Diagnóstico agendado": "#2F6F4E",
   "Mapa de People enviado/realizado": "#1F6F5C",
   "Proposta enviada": "#15803D",
@@ -117,6 +121,7 @@ export const MENSAGEM_PONTE_MAPA =
 export const FUNIL = [
   "Abordagem enviada",
   "Conversa aberta",
+  "Call",
   "Diagnóstico agendado",
   "Mapa de People enviado/realizado",
   "Proposta enviada",
