@@ -52,6 +52,7 @@ import {
   prontoParaAbordagem,
   proximoIntervaloCadencia,
   proximosDiasUteis,
+  textoAntiguidade,
   whatsappLink,
 } from "@/lib/cali";
 import { FilaBadge } from "@/components/FilaBadge";
@@ -374,6 +375,37 @@ export function LeadDrawer({
     }
   }
 
+  /** Marca que um contato aconteceu agora, sem exigir o fluxo guiado de cadência nem mudar o
+   * status — para quando a mensagem foi enviada fora do app (LinkedIn, WhatsApp) e só o
+   * registro de "última interação" ficou desatualizado. */
+  async function marcarContatoHoje() {
+    try {
+      const agora = new Date().toISOString();
+      const patch: Partial<Lead> = {
+        ultima_interacao: agora,
+        cadencia_status: "Ativa",
+        cadencia_toque: Math.max(1, draft!.cadencia_toque || 0),
+      };
+      const base = savedLeadRef.current ?? draft!;
+      const atualizado = await atualizarLead(base, patch);
+      savedLeadRef.current = atualizado;
+      draftRef.current = atualizado;
+      setDraft(atualizado);
+      await registrarEvento({
+        lead_id: draft!.id,
+        tipo: "contato_manual",
+        descricao: "Contato marcado manualmente como feito hoje.",
+      });
+      qc.setQueryData<Lead[]>(["leads"], (atuais) =>
+        atuais?.map((item) => (item.id === atualizado.id ? atualizado : item)),
+      );
+      qc.invalidateQueries({ queryKey: ["eventos", draft!.id] });
+      toast.success("Contato de hoje registrado.");
+    } catch {
+      toast.error("Não foi possível registrar o contato.");
+    }
+  }
+
   return (
     <Sheet
       open={!!lead}
@@ -408,6 +440,17 @@ export function LeadDrawer({
             <span className="text-xs text-muted-foreground">
               Última alteração em {formatDataHora(draft.atualizado_em)}
             </span>
+            <span className="text-xs text-muted-foreground">{textoAntiguidade(draft)}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={marcarContatoHoje}
+              title="Usa quando você mandou mensagem fora do app (LinkedIn, WhatsApp) e quer atualizar a contagem de dias sem mudar o status"
+            >
+              Marcar contato hoje
+            </Button>
             <span
               className={
                 saveState === "error"
@@ -484,7 +527,9 @@ export function LeadDrawer({
             {plano.assunto ? (
               <p className="mb-2 text-xs font-medium text-primary">Assunto: {plano.assunto}</p>
             ) : null}
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{plano.mensagem}</pre>
+            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+              {plano.mensagem}
+            </pre>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => copiar(plano.textoCopiar)}>
