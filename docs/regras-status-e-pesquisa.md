@@ -65,3 +65,9 @@ tem coluna própria para **Esfriou** e agrupa o porte em faixas (1-10, 11-50, 51
 - Os status `Convite enviado` e `Convite pendente` coexistem: o primeiro registra o envio; o segundo permite acompanhar o convite enquanto aguarda aceite. O status `Call` indica que uma chamada está sendo combinada. Nenhum registro antigo é migrado automaticamente para esses status.
 - A Selbetti (registros `Selbetti Soluções emTecnologia - Curitiba` e `Selbetti Tecnologia`) tem histórico de contato, inclusive resposta em outubro de 2026, e deve ser tratada como **já trabalhada** para fins de prospecção, independentemente do `status` visível. Não alterar seus status sem decisão manual da Patrícia.
 - A rotina diária segue a revisão de 20/10/2026: mínimo de 10 decisores inéditos com LinkedIn pessoal confirmado, desejável 20; não contar já abordados, não mudar seus status.
+
+## Exclusão por modelo de negócio — 09/11/2026
+
+- NÃO selecionar para prospecção CALI empresas cujo produto/serviço principal seja captação de leads, geração de oportunidades comerciais, prospecção terceirizada, automação de funil, qualificação/conversão automática de leads ou venda de contratos, incluindo ferramentas SaaS direcionadas primordialmente a esse fim. Ter equipe própria ou estar contratando não basta para justificar o encaixe.
+- Diferencie software operacional real (frotas, indústria, gestão técnica, ERP etc.) de software focado essencialmente em vendas e geração/conversão de leads. Revise o site e as funcionalidades antes de incluir.
+- Exemplo reprovado: LíderHub (liderhub.ai), por foco em funil de vendas e automação de conversão para escritórios. Ao reprovar, retirar apenas a tag `selecao-dia-AAAA-MM-DD`, preservar o cadastro, todos os status e eventos históricos e registrar `fora-icp-automacao-comercial` e `nao-reapresentar`; não recontabilizar.
