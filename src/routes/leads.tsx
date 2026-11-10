@@ -45,7 +45,6 @@ import {
   type Fila,
 } from "@/lib/cali";
 import {
-  atualizarLead,
   criarLead,
   criarVisao,
   excluirVisao,
@@ -55,11 +54,6 @@ import {
   restaurarLead,
   type Lead,
 } from "@/lib/db";
-
-/** Status em que um contato foi tentado por um canal que não LinkedIn e ainda não respondeu —
- * candidatos a voltar para "Novo lead" quando o lead não tem LinkedIn do decisor, já que a
- * abordagem agora é só por LinkedIn. */
-const STATUS_RESETAVEIS_SEM_LINKEDIN = new Set(["Abordagem enviada", "Em cadência"]);
 
 export const Route = createFileRoute("/leads")({
   head: () => ({
@@ -195,27 +189,6 @@ function Leads() {
       qc.invalidateQueries({ queryKey: ["leads-excluidos"] });
       toast.success("Lead restaurado.");
     },
-  });
-
-  const paraResetarSemLinkedin = useMemo(
-    () => leads.filter((l) => !l.linkedin_decisor && STATUS_RESETAVEIS_SEM_LINKEDIN.has(l.status)),
-    [leads],
-  );
-
-  const resetarSemLinkedin = useMutation({
-    mutationFn: async (candidatos: Lead[]) => {
-      for (const lead of candidatos) {
-        await atualizarLead(lead, { status: "Novo lead" });
-      }
-    },
-    onSuccess: (_d, candidatos) => {
-      qc.invalidateQueries({ queryKey: ["leads"] });
-      toast.success(`${candidatos.length} lead(s) voltaram para "Novo lead".`);
-    },
-    onError: () =>
-      toast.error(
-        "Não foi possível resetar todos os leads. Confira o que já mudou e tente de novo.",
-      ),
   });
 
   const filtrados = useMemo(() => {
@@ -710,36 +683,6 @@ function Leads() {
             </Label>
           </div>
         </div>
-
-        {canal === "sem_linkedin_decisor" && paraResetarSemLinkedin.length > 0 && (
-          <section className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
-            <span>
-              <strong>{paraResetarSemLinkedin.length}</strong> lead(s) sem LinkedIn do decisor estão
-              em "Abordagem enviada" ou "Em cadência" — abordagem foi tentada por outro canal. Já
-              que agora o contato é só por LinkedIn, dá pra voltar todos pra "Novo lead" de uma vez.
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto shrink-0"
-              disabled={resetarSemLinkedin.isPending}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    `Voltar ${paraResetarSemLinkedin.length} lead(s) sem LinkedIn do decisor para "Novo lead"? Isso zera a cadência deles. Empresas:\n\n${paraResetarSemLinkedin
-                      .slice(0, 15)
-                      .map((l) => l.empresa)
-                      .join(", ")}${paraResetarSemLinkedin.length > 15 ? "…" : ""}`,
-                  )
-                ) {
-                  resetarSemLinkedin.mutate(paraResetarSemLinkedin);
-                }
-              }}
-            >
-              Resetar {paraResetarSemLinkedin.length} para "Novo lead"
-            </Button>
-          </section>
-        )}
 
         <section className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-3">
           {(["A", "B", "C"] as Fila[]).map((f) => (
