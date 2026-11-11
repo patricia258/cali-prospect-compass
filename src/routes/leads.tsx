@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import Papa from "papaparse";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Linkedin } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { LeadDrawer } from "@/components/LeadDrawer";
 import { ImportDialog } from "@/components/ImportDialog";
@@ -30,6 +30,7 @@ import {
   STATUS_ENCERRADOS,
   STATUS_LIST,
   STATUS_PAUSADOS,
+  TIPOS_CONTATO,
   canalRecomendado,
   chaveAntiguidade,
   classificarFila,
@@ -78,14 +79,9 @@ type Ordem = { campo: keyof Lead; dir: "asc" | "desc" };
 
 const COLUNAS: { campo: keyof Lead; label: string; className?: string }[] = [
   { campo: "empresa", label: "Empresa" },
-  { campo: "prioridade", label: "Prioridade" },
-  { campo: "sinal_compra", label: "Sinal" },
-  { campo: "cidade", label: "Cidade" },
   { campo: "status", label: "Status" },
-  { campo: "proximo_followup", label: "Follow-up" },
-  { campo: "ultima_interacao", label: "Última msg" },
+  { campo: "tipo_contato", label: "Tipo de contato" },
   { campo: "criado_em", label: "Entrada" },
-  { campo: "atualizado_em", label: "Atualizado" },
 ];
 
 /** Data do lote mais recente em que o lead entrou (tag pesquisa/seleção do dia ou data de criação). */
@@ -130,6 +126,7 @@ function Leads() {
   const [aderencia, setAderencia] = useState("todas");
   const [segmento, setSegmento] = useState("todos");
   const [status, setStatus] = useState("todos");
+  const [tipoContato, setTipoContato] = useState("sem_rh");
   const [prioridade, setPrioridade] = useState("todas");
   const [sinal, setSinal] = useState("todos");
   const [canal, setCanal] = useState("todos");
@@ -162,6 +159,7 @@ function Leads() {
         aderencia,
         segmento,
         status,
+        tipoContato,
         prioridade,
         sinal,
         canal,
@@ -201,6 +199,15 @@ function Leads() {
         if (segmento === "__vazio__" ? !!l.segmento : l.segmento !== segmento) return false;
       }
       if (status !== "todos" && l.status !== status) return false;
+      if (tipoContato === "sem_rh" && l.tipo_contato === "RH") return false;
+      if (tipoContato === "__vazio__" && l.tipo_contato) return false;
+      if (
+        tipoContato !== "todos" &&
+        tipoContato !== "sem_rh" &&
+        tipoContato !== "__vazio__" &&
+        l.tipo_contato !== tipoContato
+      )
+        return false;
       if (prioridade !== "todas" && l.prioridade !== prioridade) return false;
       if (sinal !== "todos" && (l.sinal_compra || "Sem sinal forte") !== sinal) return false;
       if (pesquisa !== "todas" && !(l.tags ?? []).includes(`pesquisa-dia-${pesquisa}`))
@@ -274,6 +281,7 @@ function Leads() {
     aderencia,
     segmento,
     status,
+    tipoContato,
     prioridade,
     sinal,
     canal,
@@ -316,6 +324,7 @@ function Leads() {
     setAderencia("todas");
     setSegmento("todos");
     setStatus("todos");
+    setTipoContato("sem_rh");
     setPrioridade("todas");
     setSinal("todos");
     setCanal("todos");
@@ -433,6 +442,7 @@ function Leads() {
     setAderencia((filtros["aderencia"] as string) ?? "todas");
     setSegmento((filtros["segmento"] as string) ?? "todos");
     setStatus((filtros["status"] as string) ?? "todos");
+    setTipoContato((filtros["tipoContato"] as string) ?? "sem_rh");
     setPrioridade((filtros["prioridade"] as string) ?? "todas");
     setSinal((filtros["sinal"] as string) ?? "todos");
     setCanal((filtros["canal"] as string) ?? "todos");
@@ -583,6 +593,21 @@ function Leads() {
                   {s}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={tipoContato} onValueChange={setTipoContato}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Tipo de contato" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sem_rh">Sem RH (padrão)</SelectItem>
+              <SelectItem value="todos">Todos os tipos</SelectItem>
+              {TIPOS_CONTATO.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+              <SelectItem value="__vazio__">— não definido —</SelectItem>
             </SelectContent>
           </Select>
           <Select value={prioridade} onValueChange={setPrioridade}>
@@ -786,12 +811,15 @@ function Leads() {
                     </button>
                   </th>
                 ))}
+                <th className="px-3 py-2.5 text-left">
+                  <span className="label-eyebrow">LinkedIn</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={COLUNAS.length + 1} className="px-3 py-6 text-muted-foreground">
+                  <td colSpan={COLUNAS.length + 2} className="px-3 py-6 text-muted-foreground">
                     Carregando…
                   </td>
                 </tr>
@@ -802,7 +830,7 @@ function Leads() {
                   <Fragment key={g.titulo ?? "todos"}>
                     {g.titulo && (
                       <tr key={`h-${g.titulo}`} className="bg-secondary/60">
-                        <td colSpan={COLUNAS.length + 1} className="px-3 py-1.5">
+                        <td colSpan={COLUNAS.length + 2} className="px-3 py-1.5">
                           <button
                             className="flex w-full items-center gap-2 text-left text-xs font-semibold"
                             onClick={() =>
@@ -831,7 +859,6 @@ function Leads() {
                     )}
                     {!fechado &&
                       g.itens.map((l) => {
-                        const vencido = !!l.proximo_followup && l.proximo_followup < hoje;
                         const esfriando = diasDesde(l.atualizado_em) > DIAS_ESFRIANDO;
                         const { fila: filaLead, motivo } = classificarFila(l);
                         return (
@@ -859,46 +886,8 @@ function Leads() {
                             <td className="px-3 py-2.5">
                               <FilaBadge fila={filaLead} motivo={motivo} />
                             </td>
-                            <td className="px-3 py-2.5 text-muted-foreground">{l.prioridade}</td>
-                            <td className="max-w-44 px-3 py-2.5 text-xs text-muted-foreground">
-                              {l.sinal_compra || "Sem sinal forte"}
-                            </td>
-                            <td className="px-3 py-2.5 text-muted-foreground">{l.cidade ?? "—"}</td>
                             <td className="px-3 py-2.5">
                               <StatusBadge status={l.status} />
-                            </td>
-                            <td className="px-3 py-2.5">
-                              {l.proximo_followup ? (
-                                <span
-                                  className="rounded-sm px-1.5 py-0.5 text-xs"
-                                  style={
-                                    vencido
-                                      ? { backgroundColor: "#A5442F1f", color: "#A5442F" }
-                                      : undefined
-                                  }
-                                >
-                                  {formatData(l.proximo_followup)}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs">
-                              <span
-                                className={
-                                  diasDesde(chaveAntiguidade(l)) > DIAS_ESFRIANDO
-                                    ? "font-medium text-destructive"
-                                    : "text-muted-foreground"
-                                }
-                              >
-                                {textoAntiguidade(l)}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                              {formatData(l.criado_em)}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                              {formatData(l.atualizado_em)}
                               {esfriando && (
                                 <span
                                   className="ml-1.5 rounded-sm px-1.5 py-0.5 text-[10px]"
@@ -906,6 +895,27 @@ function Leads() {
                                 >
                                   esfriando
                                 </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                              {l.tipo_contato ?? "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                              {formatData(l.criado_em)}
+                            </td>
+                            <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                              {l.linkedin_decisor ? (
+                                <a
+                                  href={l.linkedin_decisor}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center rounded-full border border-dourado/60 bg-dourado/10 p-1.5 text-primary hover:bg-dourado hover:text-white"
+                                  title="Abrir LinkedIn do decisor"
+                                >
+                                  <Linkedin className="h-3.5 w-3.5" />
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </td>
                           </tr>
@@ -916,7 +926,7 @@ function Leads() {
               })}
               {!isLoading && filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={COLUNAS.length + 1} className="px-3 py-8 text-muted-foreground">
+                  <td colSpan={COLUNAS.length + 2} className="px-3 py-8 text-muted-foreground">
                     Nenhum lead com esses filtros.
                   </td>
                 </tr>
