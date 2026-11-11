@@ -180,6 +180,7 @@ export type Database = {
           tags: string[]
           tamanho_time: string | null
           telefone: string | null
+          tipo_contato: string | null
           ultima_interacao: string | null
           website: string | null
           whatsapp: string | null
@@ -236,6 +237,7 @@ export type Database = {
           tags?: string[]
           tamanho_time?: string | null
           telefone?: string | null
+          tipo_contato?: string | null
           ultima_interacao?: string | null
           website?: string | null
           whatsapp?: string | null
@@ -292,6 +294,7 @@ export type Database = {
           tags?: string[]
           tamanho_time?: string | null
           telefone?: string | null
+          tipo_contato?: string | null
           ultima_interacao?: string | null
           website?: string | null
           whatsapp?: string | null

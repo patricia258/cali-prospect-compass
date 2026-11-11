@@ -71,6 +71,11 @@ export const ADERENCIAS = ["Alta", "Média", "Parceria", "Baixa"];
 export const SEGMENTOS = ["A", "B", "C", "D"];
 export const PRIORIDADES = ["Alta", "Média", "Baixa"] as const;
 export const PAPEIS_CONTATO = ["Decisor", "Influenciador", "Outro"] as const;
+
+/** Quem essa pessoa é em relação à CALI — separado do status (pipeline) e da categoria de
+ * negócio da empresa. Importante sobretudo nos contatos importados das conexões do LinkedIn,
+ * que incluem muita gente que não é prospect (colegas de RH, parceiros, ex-colegas de time). */
+export const TIPOS_CONTATO = ["Decisor", "RH", "Parceiro", "Time"] as const;
 export const ORIGENS = [
   "Indicação",
   "LinkedIn",
@@ -487,7 +492,7 @@ export function planoAbordagem(lead: LeadAbordagem) {
   const sinal = lead.sinal_compra || "Sem sinal forte";
   const contexto = contextoOperacao(lead);
 
-  let objetivo = temDecisor
+  const objetivo = temDecisor
     ? "Confirmar se a gestão de pessoas fica com essa pessoa ou se existe outro responsável."
     : "Descobrir quem é a pessoa responsável por gestão de pessoas antes de vender qualquer coisa.";
 
@@ -518,7 +523,9 @@ export function planoAbordagem(lead: LeadAbordagem) {
   const porQue =
     lead.sinal_detalhe?.trim() ||
     lead.angulo_abordagem?.trim() ||
-    (lead.icp_fit ? `Fit ${lead.icp_fit}/10 com o perfil comercial da CALI.` : "Lead qualificado para abordagem.");
+    (lead.icp_fit
+      ? `Fit ${lead.icp_fit}/10 com o perfil comercial da CALI.`
+      : "Lead qualificado para abordagem.");
 
   const evitar =
     "Não apresentar a CALI inteira, não mandar PDF/Mapa de People e não perguntar ‘qual seu maior desafio?’ no primeiro contato.";

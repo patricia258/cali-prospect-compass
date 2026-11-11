@@ -39,6 +39,7 @@ import {
   ORIGENS,
   PAPEIS_CONTATO,
   PRIORIDADES,
+  TIPOS_CONTATO,
   SEGMENTOS,
   SINAIS_COMPRA,
   STATUS_ENCERRADOS,
@@ -74,7 +75,6 @@ const CAMPOS: { key: keyof Lead; label: string; type?: string }[] = [
   { key: "nome_decisor", label: "Nome do decisor" },
   { key: "email", label: "E-mail" },
   { key: "telefone", label: "Telefone" },
-  { key: "linkedin_decisor", label: "LinkedIn do decisor" },
   { key: "linkedin_empresa", label: "LinkedIn da empresa" },
   { key: "website", label: "Site" },
   { key: "google_maps", label: "Google Maps" },
@@ -122,6 +122,7 @@ export function LeadDrawer({
 }) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState<Lead | null>(lead);
+  const [planoExpandido, setPlanoExpandido] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">("saved");
   const draftRef = useRef<Lead | null>(lead);
   const savedLeadRef = useRef<Lead | null>(lead);
@@ -495,46 +496,62 @@ export function LeadDrawer({
               <p className="label-eyebrow">Plano de abordagem</p>
               <h3 className="mt-1 font-display text-xl text-primary">{plano.canal}</h3>
             </div>
-            <FilaBadge fila={filaAtual.fila} motivo={filaAtual.motivo} />
-          </div>
-          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Falar com
-              </p>
-              <p className="mt-1">{plano.falarCom}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Primeiro objetivo
-              </p>
-              <p className="mt-1">{plano.objetivo}</p>
-            </div>
-            <div className="sm:col-span-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Por que vale abordar
-              </p>
-              <p className="mt-1">{plano.porQue}</p>
-            </div>
-            <div className="sm:col-span-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Evite no primeiro contato
-              </p>
-              <p className="mt-1 text-muted-foreground">{plano.evitar}</p>
+            <div className="flex items-center gap-2">
+              <FilaBadge fila={filaAtual.fila} motivo={filaAtual.motivo} />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs"
+                onClick={() => setPlanoExpandido((v) => !v)}
+              >
+                {planoExpandido ? "Ocultar modelo" : "Ver modelo de mensagem"}
+              </Button>
             </div>
           </div>
-          <div className="mt-4 rounded-md border bg-card p-3">
-            {plano.assunto ? (
-              <p className="mb-2 text-xs font-medium text-primary">Assunto: {plano.assunto}</p>
-            ) : null}
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-              {plano.mensagem}
-            </pre>
-          </div>
+          {planoExpandido && (
+            <>
+              <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Falar com
+                  </p>
+                  <p className="mt-1">{plano.falarCom}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Primeiro objetivo
+                  </p>
+                  <p className="mt-1">{plano.objetivo}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Por que vale abordar
+                  </p>
+                  <p className="mt-1">{plano.porQue}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Evite no primeiro contato
+                  </p>
+                  <p className="mt-1 text-muted-foreground">{plano.evitar}</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-md border bg-card p-3">
+                {plano.assunto ? (
+                  <p className="mb-2 text-xs font-medium text-primary">Assunto: {plano.assunto}</p>
+                ) : null}
+                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                  {plano.mensagem}
+                </pre>
+              </div>
+            </>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => copiar(plano.textoCopiar)}>
-              Copiar mensagem
-            </Button>
+            {planoExpandido && (
+              <Button size="sm" variant="outline" onClick={() => copiar(plano.textoCopiar)}>
+                Copiar mensagem
+              </Button>
+            )}
             <Button
               size="sm"
               disabled={!pronto || Boolean(draft.primeiro_contato_em) || draft.cadencia_toque > 0}
@@ -571,7 +588,7 @@ export function LeadDrawer({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Status</Label>
+                <Label className="font-semibold text-primary">Status</Label>
                 <Select value={draft.status} onValueChange={statusChange}>
                   <SelectTrigger>
                     <SelectValue />
@@ -586,6 +603,33 @@ export function LeadDrawer({
                 </Select>
               </div>
               <div className="space-y-1.5">
+                <Label className="font-semibold text-primary">Tipo de contato</Label>
+                <Select
+                  value={draft.tipo_contato ?? "__vazio__"}
+                  onValueChange={(v) => set({ tipo_contato: v === "__vazio__" ? null : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__vazio__">— não definido —</SelectItem>
+                    {TIPOS_CONTATO.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="font-semibold text-primary">LinkedIn do decisor</Label>
+                <Input
+                  value={draft.linkedin_decisor ?? ""}
+                  onChange={(e) => set({ linkedin_decisor: e.target.value || null })}
+                  className="border-primary/40"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label>Próximo follow-up</Label>
                 <Input
                   type="date"
@@ -594,7 +638,7 @@ export function LeadDrawer({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Prioridade</Label>
+                <Label className="font-semibold text-primary">Prioridade</Label>
                 <Select value={draft.prioridade} onValueChange={(v) => set({ prioridade: v })}>
                   <SelectTrigger>
                     <SelectValue />
