@@ -70,8 +70,6 @@ import {
 const CAMPOS: { key: keyof Lead; label: string; type?: string }[] = [
   { key: "categoria", label: "Categoria" },
   { key: "cargo_decisor", label: "Cargo do decisor" },
-  { key: "cidade", label: "Cidade" },
-  { key: "estado", label: "Estado" },
   { key: "nome_decisor", label: "Nome do decisor" },
   { key: "email", label: "E-mail" },
   { key: "telefone", label: "Telefone" },
@@ -627,6 +625,24 @@ export function LeadDrawer({
                   value={draft.linkedin_decisor ?? ""}
                   onChange={(e) => set({ linkedin_decisor: e.target.value || null })}
                   className="border-primary/40"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="font-semibold text-primary">Cidade</Label>
+                <Input
+                  value={draft.cidade ?? ""}
+                  onChange={(e) => set({ cidade: e.target.value || null })}
+                  className="border-primary/40"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="font-semibold text-primary">Estado</Label>
+                <Input
+                  value={draft.estado ?? ""}
+                  onChange={(e) => set({ estado: e.target.value || null })}
+                  className="border-primary/40"
+                  maxLength={2}
+                  placeholder="PR, SP…"
                 />
               </div>
               <div className="space-y-1.5">
