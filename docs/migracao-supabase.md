@@ -18,3 +18,7 @@ As seis tabelas do Prospect no destino têm RLS habilitada, acesso anônimo revo
 - Publicar uma prévia e conferir login, listagem, edição, eventos, filtros e importação antes do corte.
 
 O backend anterior deve permanecer disponível até a validação final. A reversão do código não sincroniza alterações de dados feitas depois do corte.
+
+## Validação para o corte
+
+Em 17/11/2026, a proprietária confirmou SMTP e URLs de retorno salvos e confirmou login por link e visualização dos leads na prévia do Prospect. A chave Resend substituta passou na validação sem envio de e-mail pela ferramenta. A comparação imediatamente anterior ao corte confirmou igualdade das dez tabelas entre as origens e o destino. A sincronização adicional do Portal foi concluída à noite. Os ambientes antigos serão preservados.
