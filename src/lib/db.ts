@@ -11,23 +11,38 @@ export type ImportacaoLeads = Tables<"importacoes_leads">;
 
 const LEADS_POR_PAGINA = 1000;
 
+function paginaDeLeads(inicio: number) {
+  return supabase
+    .from("leads")
+    .select("*", { count: "exact" })
+    .is("excluido_em", null)
+    .order("atualizado_em", { ascending: false })
+    .order("id", { ascending: true })
+    .range(inicio, inicio + LEADS_POR_PAGINA - 1);
+}
+
+/** Busca todas as páginas em paralelo (depois de saber o total pela primeira página) em vez
+ * de uma de cada vez — com a base na casa dos milhares, pedir tudo em série deixava a tela de
+ * Leads lenta pra abrir. */
 export async function fetchLeads(): Promise<Lead[]> {
-  const todos: Lead[] = [];
+  const primeira = await paginaDeLeads(0);
+  if (primeira.error) throw primeira.error;
 
-  for (let inicio = 0; ; inicio += LEADS_POR_PAGINA) {
-    const { data, error } = await supabase
-      .from("leads")
-      .select("*")
-      .is("excluido_em", null)
-      .order("atualizado_em", { ascending: false })
-      .order("id", { ascending: true })
-      .range(inicio, inicio + LEADS_POR_PAGINA - 1);
+  const total = primeira.count ?? primeira.data?.length ?? 0;
+  const todos: Lead[] = [...(primeira.data ?? [])];
 
+  const paginasRestantes: Promise<{ data: Lead[] | null; error: unknown; inicio: number }>[] = [];
+  for (let inicio = LEADS_POR_PAGINA; inicio < total; inicio += LEADS_POR_PAGINA) {
+    paginasRestantes.push(
+      Promise.resolve(paginaDeLeads(inicio)).then(({ data, error }) => ({ data, error, inicio })),
+    );
+  }
+
+  const resultados = await Promise.all(paginasRestantes);
+  resultados.sort((a, b) => a.inicio - b.inicio);
+  for (const { data, error } of resultados) {
     if (error) throw error;
-
-    const pagina = data ?? [];
-    todos.push(...pagina);
-    if (pagina.length < LEADS_POR_PAGINA) break;
+    todos.push(...(data ?? []));
   }
 
   return todos;
