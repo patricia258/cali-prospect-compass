@@ -1,3 +1,4 @@
+import { correspondePesquisa, normalizarBusca } from "@/lib/filtros-leads";
 import { Fragment, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import Papa from "papaparse";
@@ -97,7 +98,13 @@ function dataLote(lead: { tags?: string[] | null; criado_em?: string | null }) {
 
 function Leads() {
   const qc = useQueryClient();
-  const { data: leads = [], isLoading } = useQuery({
+  const {
+    data: leads = [],
+    isLoading,
+    error: erroLeads,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ["leads"],
     queryFn: fetchLeads,
     staleTime: 0,
@@ -107,7 +114,7 @@ function Leads() {
     const datas = new Set<string>();
     for (const l of leads) {
       for (const t of l.tags ?? []) {
-        const m = /^pesquisa-dia-(\d{4}-\d{2}-\d{2})$/.exec(t);
+        const m = /^(?:pesquisa|selecao)-dia-(\d{4}-\d{2}-\d{2})$/.exec(t);
         if (m?.[1]) datas.add(m[1]);
       }
     }
@@ -121,6 +128,25 @@ function Leads() {
   });
 
   const [busca, setBusca] = useState("");
+  const [cidade, setCidade] = useState("todas");
+  const [fitMinimo, setFitMinimo] = useState("todos");
+  const cidades = useMemo(
+    () =>
+      [...new Set(leads.map((l) => l.cidade?.trim()).filter((c): c is string => Boolean(c)))].sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [leads],
+  );
+  const segmentosDisponiveis = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...SEGMENTOS,
+          ...leads.map((l) => l.segmento?.trim()).filter((s): s is string => Boolean(s)),
+        ]),
+      ].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [leads],
+  );
   const [fila, setFila] = useState<"todas" | Fila>("todas");
   const [enriquecer, setEnriquecer] = useState<Set<string> | null>(null);
   const [aderencia, setAderencia] = useState("todas");
@@ -168,6 +194,8 @@ function Leads() {
         somenteProntos,
         comLinkedinDecisor,
         busca,
+        cidade,
+        fitMinimo,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["visoes"] });
@@ -190,8 +218,10 @@ function Leads() {
   });
 
   const filtrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
+    const termo = normalizarBusca(busca.trim());
     const lista = leads.filter((l) => {
+      if (cidade !== "todas" && l.cidade?.trim() !== cidade) return false;
+      if (fitMinimo !== "todos" && (l.icp_fit ?? 0) < Number(fitMinimo)) return false;
       if (fila !== "todas" && filaDe(l) !== fila) return false;
       if (enriquecer && !enriquecer.has(l.id)) return false;
       if (aderencia !== "todas" && (l.aderencia ?? "") !== aderencia) return false;
@@ -210,8 +240,7 @@ function Leads() {
         return false;
       if (prioridade !== "todas" && l.prioridade !== prioridade) return false;
       if (sinal !== "todos" && (l.sinal_compra || "Sem sinal forte") !== sinal) return false;
-      if (pesquisa !== "todas" && !(l.tags ?? []).includes(`pesquisa-dia-${pesquisa}`))
-        return false;
+      if (pesquisa !== "todas" && !correspondePesquisa(l.tags, pesquisa)) return false;
       if (somenteProntos && !prontoParaAbordagem(l)) return false;
       if (comLinkedinDecisor && !l.linkedin_decisor) return false;
       if (followup === "vencido" && !(l.proximo_followup && l.proximo_followup < hoje))
@@ -246,22 +275,23 @@ function Leads() {
       };
       if (canal !== "todos" && !canais[canal]) return false;
       if (!termo) return true;
-      return [
-        l.empresa,
-        l.categoria,
-        l.cidade,
-        l.nome_decisor,
-        l.email,
-        l.notas,
-        l.dor_provavel,
-        l.sinal_detalhe,
-        l.sinal_fonte_url,
-        l.angulo_abordagem,
-        ...(l.tags ?? []),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(termo);
+      return normalizarBusca(
+        [
+          l.empresa,
+          l.categoria,
+          l.cidade,
+          l.estado,
+          l.cargo_decisor,
+          l.nome_decisor,
+          l.email,
+          l.notas,
+          l.dor_provavel,
+          l.sinal_detalhe,
+          l.sinal_fonte_url,
+          l.angulo_abordagem,
+          ...(l.tags ?? []),
+        ].join(" "),
+      ).includes(termo);
     });
 
     const dir = ordem.dir === "asc" ? 1 : -1;
@@ -276,6 +306,8 @@ function Leads() {
   }, [
     leads,
     busca,
+    cidade,
+    fitMinimo,
     fila,
     enriquecer,
     aderencia,
@@ -320,6 +352,10 @@ function Leads() {
   const faltamParaMeta = Math.max(0, 30 - contatosHoje.length);
 
   function limparFiltrosDaRotina() {
+    setEnriquecer(null);
+    setCidade("todas");
+    setFitMinimo("todos");
+    setComLinkedinDecisor(false);
     setFila("todas");
     setAderencia("todas");
     setSegmento("todos");
@@ -438,6 +474,8 @@ function Leads() {
 
   function aplicarVisao(filtros: Record<string, unknown>) {
     setEnriquecer(null);
+    setCidade((filtros["cidade"] as string) ?? "todas");
+    setFitMinimo((filtros["fitMinimo"] as string) ?? "todos");
     setFila(((filtros["fila"] as string) ?? "todas") as "todas" | Fila);
     setAderencia((filtros["aderencia"] as string) ?? "todas");
     setSegmento((filtros["segmento"] as string) ?? "todos");
@@ -473,6 +511,14 @@ function Leads() {
       }
     >
       <div className="space-y-4">
+        {erroLeads ? (
+          <div role="alert" className="rounded-md border border-destructive/30 bg-card p-4">
+            <p>Não foi possível carregar os leads. Seus dados não foram apagados.</p>
+            <Button variant="outline" onClick={() => refetch()}>
+              Tentar novamente
+            </Button>
+          </div>
+        ) : null}
         {mostrarLixeira ? (
           <section className="rounded-md border bg-card p-4">
             <div className="flex items-center justify-between gap-4">
@@ -538,6 +584,45 @@ function Leads() {
             placeholder="Buscar empresa, decisor, categoria, etiqueta…"
             className="min-w-52 flex-1"
           />
+          <Select value={cidade} onValueChange={setCidade}>
+            <SelectTrigger className="w-48" aria-label="Cidade">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as cidades</SelectItem>
+              {cidades.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={fitMinimo} onValueChange={setFitMinimo}>
+            <SelectTrigger className="w-44" aria-label="Fit mínimo">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Qualquer fit</SelectItem>
+              {[7, 8, 9, 10].map((fit) => (
+                <SelectItem key={fit} value={String(fit)}>
+                  Fit {fit}+ / 10
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={limparFiltrosDaRotina}>
+            Limpar filtros
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={isFetching}
+            onClick={() => {
+              refetch();
+              qc.invalidateQueries({ queryKey: ["visoes"] });
+            }}
+          >
+            {isFetching ? "Atualizando…" : "Atualizar base"}
+          </Button>
           <Select
             value={fila}
             onValueChange={(v) => {
@@ -574,9 +659,9 @@ function Leads() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todo segmento</SelectItem>
-              {SEGMENTOS.map((s) => (
+              {segmentosDisponiveis.map((s) => (
                 <SelectItem key={s} value={s}>
-                  Segmento {s}
+                  {/^[A-D]$/.test(s) ? `Segmento ${s}` : s}
                 </SelectItem>
               ))}
               <SelectItem value="__vazio__">Definir segmento</SelectItem>
@@ -666,6 +751,9 @@ function Leads() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas as datas de pesquisa</SelectItem>
+              {pesquisa !== "todas" && !/^\d{4}-\d{2}-\d{2}$/.test(pesquisa) ? (
+                <SelectItem value={pesquisa}>{pesquisa}</SelectItem>
+              ) : null}
               {datasPesquisa.map((d) => (
                 <SelectItem key={d} value={d}>
                   Pesquisa de {d.split("-").reverse().join("/")}
@@ -924,7 +1012,7 @@ function Leads() {
                   </Fragment>
                 );
               })}
-              {!isLoading && filtrados.length === 0 && (
+              {!isLoading && !erroLeads && filtrados.length === 0 && (
                 <tr>
                   <td colSpan={COLUNAS.length + 2} className="px-3 py-8 text-muted-foreground">
                     Nenhum lead com esses filtros.

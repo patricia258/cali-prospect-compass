@@ -22,3 +22,8 @@ O backend anterior deve permanecer disponível até a validação final. A rever
 ## Validação para o corte
 
 Em 17/11/2026, a proprietária confirmou SMTP e URLs de retorno salvos e confirmou login por link e visualização dos leads na prévia do Prospect. A chave Resend substituta passou na validação sem envio de e-mail pela ferramenta. A comparação imediatamente anterior ao corte confirmou igualdade das dez tabelas entre as origens e o destino. A sincronização adicional do Portal foi concluída à noite. Os ambientes antigos serão preservados.
+
+
+## Reparação da rotina em 20/11/2026
+
+A rotina do ChatGPT consultou a origem vazia em 18/11 e foi suspensa. Confirmado o destino `tpzcytjbglwzhgxrzzzb` na conexão contato Cali com 4.802 cadastros. A view `v_padroes_nao_alinhados` não havia acompanhado a cópia de tabelas; foi restaurada por migration, com `security_invoker`, sem acesso anônimo. A validação da retomada precisa incluir tanto o agendamento quanto uma gravação real de leads pesquisados, não apenas o acesso à base.

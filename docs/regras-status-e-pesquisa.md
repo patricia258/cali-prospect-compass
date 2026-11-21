@@ -2,6 +2,14 @@
 
 Vale para qualquer pessoa ou IA (Claude, ChatGPT/Codex) que alimente o Prospect Compass.
 
+## Conexão oficial após a migração de 17/11/2026
+
+Todas as rotinas, no ChatGPT e no Claude, devem usar a conexão **contato Cali**, projeto **Portal**, ID `tpzcytjbglwzhgxrzzzb`, URL `https://tpzcytjbglwzhgxrzzzb.supabase.co`.
+
+A base anterior `jslzdfhldkjlvdfrvfmf` está vazia e não é mais fonte de leads. Antes de cada rodada, confirmar o projeto com `list_projects`, consultar a contagem em `public.leads` e ler `public.v_padroes_nao_alinhados` no destino. Em 20/11, foram conferidos 4.802 cadastros totais, dos quais 4.595 ativos; contagens podem mudar com o uso. Não concluir que a base foi apagada ao consultar o projeto antigo e não criar uma base paralela.
+
+O aprendizado de descartes foi restaurado no destino em 20/11. As duas ferramentas compartilham os mesmos dados: conferir empresa, domínio, LinkedIn e histórico de eventos antes de inserir ou selecionar, inclusive cadastros selecionados pela outra rotina. Conferir novamente imediatamente antes de gravar e consultar os registros persistidos ao terminar. Não criar visão diária vazia para simular entrega; relatar candidatos incompletos separadamente dos decisores prontos.
+
 ## Status (13)
 
 | Status | Quando usar |
